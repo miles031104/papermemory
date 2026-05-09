@@ -1,0 +1,14 @@
+{
+  "name": "papermemory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first visual RAG paper assistant.",
+  "scripts": {
+    "dev:web": "npm --prefix apps/web run dev",
+    "typecheck:web": "npm --prefix apps/web run typecheck",
+    "test:api": "cd apps/api && python -m pytest"
+  },
+  "workspaces": [
+    "apps/web"
+  ]
+}

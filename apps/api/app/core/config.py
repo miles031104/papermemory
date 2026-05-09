@@ -1,0 +1,64 @@
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal
+
+from pydantic import AnyHttpUrl, Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+class Settings(BaseSettings):
+    app_name: str = "PaperMemory API"
+    app_version: str = "0.1.0"
+    environment: str = "local"
+
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    storage_root: Path = REPO_ROOT / "storage"
+    max_upload_bytes: int = Field(default=100 * 1024 * 1024, gt=0)
+    max_pdf_pages: int = Field(default=200, gt=0)
+    pdf_render_zoom: float = Field(default=2.0, gt=0)
+
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_collection: str = "papermemory_pages"
+    qdrant_vector_size: int = Field(
+        default=8,
+        ge=1,
+        description="Use 8 for stub retrieval and 2304 for real VisRAG-Ret embeddings.",
+    )
+    qdrant_distance: Literal["Cosine", "Dot", "Euclid", "Manhattan"] = "Cosine"
+    qdrant_timeout_seconds: float = Field(default=5.0, gt=0)
+
+    visrag_backend: Literal["stub", "transformers"] = "stub"
+    visrag_model_name: str = "openbmb/VisRAG-Ret"
+    visrag_instruction: str = (
+        "Represent this query for retrieving relevant documents:"
+    )
+    visrag_device: Literal["auto", "cpu", "cuda"] = "auto"
+    visrag_dtype: Literal["auto", "float32", "float16", "bfloat16"] = "auto"
+    visrag_trust_remote_code: bool = False
+    visrag_batch_size: int = Field(default=4, ge=1)
+
+    byok_base_url: AnyHttpUrl | None = None
+    byok_api_key: str | None = None
+    byok_model: str = "gpt-4.1-mini"
+    byok_timeout_seconds: float = Field(default=60.0, gt=0)
+
+    model_config = SettingsConfigDict(
+        env_file=(REPO_ROOT / ".env", ".env"),
+        env_prefix="PAPERMEMORY_",
+        extra="ignore",
+    )
+
+    @model_validator(mode="after")
+    def resolve_local_paths(self) -> "Settings":
+        if not self.storage_root.is_absolute():
+            self.storage_root = REPO_ROOT / self.storage_root
+        return self
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
