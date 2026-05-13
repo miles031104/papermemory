@@ -4,6 +4,9 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   question: string;
   isSubmitting: boolean;
+  title: string;
+  contextLabel: string;
+  libraryDescription: string;
   error?: string | null;
   onQuestionChange: (question: string) => void;
   onSubmit: () => void;
@@ -15,6 +18,9 @@ export function ChatPanel({
   messages,
   question,
   isSubmitting,
+  title,
+  contextLabel,
+  libraryDescription,
   error,
   onQuestionChange,
   onSubmit,
@@ -27,11 +33,12 @@ export function ChatPanel({
     <section className="panel chat-panel" aria-labelledby="chat-title">
       <div className="panel__header">
         <div>
-          <h2 id="chat-title">Ask the library</h2>
-          <p>EVisRAG-style answers grounded in retrieved page evidence.</p>
+          <p className="eyebrow">{contextLabel}</p>
+          <h2 id="chat-title">{title}</h2>
+          <p>{libraryDescription}</p>
         </div>
         <button className="button button--subtle" type="button" onClick={onReset}>
-          New chat
+          Clear chat
         </button>
       </div>
 

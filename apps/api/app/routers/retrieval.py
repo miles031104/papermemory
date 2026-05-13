@@ -22,6 +22,14 @@ async def search(
     visrag: VisRAGService = Depends(get_visrag_service),
     vector_store: VectorStore = Depends(get_vector_store),
 ) -> RetrievalResponse:
+    if request.paper_ids == []:
+        return RetrievalResponse(
+            query=request.query,
+            evidence=[],
+            retrieval_model=visrag.model_name,
+            note="No paper scope selected; returning no evidence.",
+        )
+
     try:
         query_embedding = await visrag.embed_query(request.query)
     except VisRAGUnavailable as exc:

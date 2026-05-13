@@ -25,6 +25,10 @@ class StoragePaths:
     def indexes_dir(self) -> Path:
         return self.root / "indexes"
 
+    @property
+    def workspace_dir(self) -> Path:
+        return self.root / "workspace"
+
     def ensure_all(self) -> None:
         for path in (
             self.root,
@@ -32,6 +36,7 @@ class StoragePaths:
             self.uploads_dir,
             self.rendered_pages_dir,
             self.indexes_dir,
+            self.workspace_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
 

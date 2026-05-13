@@ -9,6 +9,7 @@ Next.js web app
       -> FastAPI backend
       -> local filesystem storage
       -> JSON paper metadata manifests
+      -> JSON workspace store
       -> VisRAG-Ret page/query encoder
       -> Qdrant local vector database
       -> BYOK multimodal model provider
@@ -32,7 +33,17 @@ The real adapter should expose `PAPERMEMORY_VISRAG_DEVICE` as `auto`, `cpu`, or 
 5. The indexing service encodes each page image with `openbmb/VisRAG-Ret`.
 6. Page vectors are upserted into Qdrant with payload metadata.
 
-Payload metadata should include paper ID, page ID, page number, title when known, local image path, local PDF path, and future-ready owner/workspace fields. The MVP writes paper manifests as JSON files beside stored PDFs; SQLite or PostgreSQL can replace this layer once background jobs and collaboration are added.
+Payload metadata should include paper ID, page ID, page number, title when known, and internal local paths needed for server-side retrieval. Public API responses expose browser-safe `image_url` values instead of local paths. The MVP writes paper manifests as JSON files beside stored PDFs; SQLite or PostgreSQL can replace this layer once background jobs and collaboration are added.
+
+## Workspace Store
+
+The local workspace model is persisted under `storage/workspace/` as JSON:
+
+- `libraries.json`: research databases/document libraries with `paper_ids` and `group_ids`.
+- `conversations.json`: chat threads scoped to one library, including messages and citations.
+- `paper_groups.json`: lightweight groups for organizing papers inside a library.
+
+On first use, PaperMemory creates an Inbox library, an Ungrouped uploads paper group, and a default research conversation. Existing uploaded paper manifests are assigned to Inbox so the left-side Codex-style workspace has a real backend state immediately. API keys and Hugging Face tokens remain frontend runtime state and are not written to this workspace store.
 
 ## Retrieval And Answering Flow
 
@@ -44,6 +55,8 @@ Payload metadata should include paper ID, page ID, page number, title when known
 6. The API returns an answer, evidence records, and page citations to the frontend.
 
 The model should be instructed to reason from retrieved page images, cite page-level evidence, and state when the evidence is insufficient.
+
+The frontend treats `image_url` as the browser-safe evidence image contract. When multimodal BYOK is enabled, users should choose a vision-capable OpenAI-compatible provider/model and cap the number of attached page images to keep requests predictable. Moving from the 8D stub retriever to real 2304D VisRAG-Ret requires recreating the Qdrant collection and reindexing PDFs because collection vector dimensions are fixed.
 
 ## Local-First Boundary
 

@@ -25,6 +25,36 @@ export interface ChatMessage {
   citations: Citation[];
 }
 
+export interface ResearchLibrary {
+  id: string;
+  name: string;
+  description: string;
+  paperIds: string[];
+  groupIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResearchConversation {
+  id: string;
+  libraryId: string;
+  title: string;
+  description: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaperGroup {
+  id: string;
+  libraryId: string;
+  name: string;
+  description: string;
+  paperIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface EvidenceItem {
   id: string;
   paperId: string;
@@ -33,6 +63,7 @@ export interface EvidenceItem {
   retriever: "VisRAG-Ret" | "Qdrant text" | "Hybrid";
   confidence: number;
   snippet: string;
+  imageUrl?: string | null;
 }
 
 export interface ModelSettings {
@@ -44,6 +75,8 @@ export interface ModelSettings {
   temperature: number;
   retrievalTopK: number;
   requireEvidence: boolean;
+  useMultimodalContext: boolean;
+  maxEvidenceImages: number;
 }
 
 export type InstallMode = "demo" | "local-visrag" | "custom";
@@ -60,6 +93,8 @@ export interface InstallSettings {
   visragDtype: "auto" | "float32" | "float16" | "bfloat16";
   trustRemoteCode: boolean;
   qdrantVectorSize: number;
+  useMultimodalContext: boolean;
+  maxEvidenceImages: number;
   providerCompany: string;
   providerBaseUrl: string;
   providerModel: string;
@@ -111,7 +146,7 @@ export interface ApiPageEvidence {
   paper_id: string;
   page_number: number;
   score: number;
-  image_path: string | null;
+  image_url?: string | null;
   title?: string | null;
   caption: string | null;
   metadata?: Record<string, string> | null;
@@ -133,6 +168,8 @@ export interface ApiChatRequest {
   model?: string;
   api_key?: string;
   temperature?: number;
+  enable_image_context?: boolean;
+  max_evidence_images?: number;
   messages?: Array<{
     role: "system" | "user" | "assistant";
     content: string;
@@ -145,4 +182,53 @@ export interface ApiChatResponse {
   model: string;
   prompt_preview: string;
   note: string | null;
+}
+
+export interface ApiWorkspaceCitation {
+  paper_id: string;
+  label: string;
+  page: number;
+}
+
+export interface ApiWorkspaceMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations: ApiWorkspaceCitation[];
+}
+
+export interface ApiResearchLibrary {
+  id: string;
+  name: string;
+  description: string;
+  paper_ids: string[];
+  group_ids: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiResearchConversation {
+  id: string;
+  library_id: string;
+  title: string;
+  description: string;
+  messages: ApiWorkspaceMessage[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiPaperGroup {
+  id: string;
+  library_id: string;
+  name: string;
+  description: string;
+  paper_ids: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiWorkspaceResponse {
+  libraries: ApiResearchLibrary[];
+  conversations: ApiResearchConversation[];
+  paper_groups: ApiPaperGroup[];
 }

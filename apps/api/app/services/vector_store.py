@@ -12,7 +12,7 @@ from app.schemas.retrieval import PageEvidence
 
 
 POINT_ID_NAMESPACE = UUID("9bfa0a83-9d63-44b1-8b47-f3b58a7257fc")
-PAYLOAD_RESERVED_KEYS = {"paper_id", "page_number", "image_path", "title", "caption"}
+PAYLOAD_RESERVED_KEYS = {"paper_id", "page_number", "image_path", "image_url", "title", "caption"}
 
 
 class VectorStoreUnavailable(HTTPException):
@@ -125,6 +125,8 @@ class VectorStore:
         top_k: int,
         paper_ids: list[str] | None = None,
     ) -> list[PageEvidence]:
+        if paper_ids == []:
+            return []
         if top_k < 1:
             raise ValueError("top_k must be at least 1.")
         self._validate_embedding(embedding)
@@ -245,8 +247,10 @@ class VectorStore:
         return getattr(distance_model, self.distance.upper())
 
     def _paper_filter(self, paper_ids: list[str] | None) -> Any | None:
-        if not paper_ids:
+        if paper_ids is None:
             return None
+        if paper_ids == []:
+            raise ValueError("empty paper_ids should be handled before building a Qdrant filter.")
 
         match = (
             self.models.MatchValue(value=paper_ids[0])

@@ -121,6 +121,32 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
           />
         </div>
 
+        <div className="toggle">
+          <label htmlFor="image-context">Attach page images</label>
+          <input
+            id="image-context"
+            name="image-context"
+            type="checkbox"
+            checked={settings.useMultimodalContext}
+            onChange={(event) => updateSettings({ useMultimodalContext: event.target.checked })}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="max-evidence-images">Max evidence images</label>
+          <input
+            id="max-evidence-images"
+            name="max-evidence-images"
+            type="number"
+            min="0"
+            max="10"
+            value={settings.maxEvidenceImages}
+            onChange={(event) =>
+              updateSettings({ maxEvidenceImages: Math.min(10, Math.max(0, Number(event.target.value))) })
+            }
+          />
+        </div>
+
         <p className="small-muted">The API key stays in React state and is sent only with chat requests.</p>
       </form>
     </section>

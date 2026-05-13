@@ -59,7 +59,8 @@ const modeCopy: Record<InstallMode, { title: string; detail: string }> = {
   },
   "local-visrag": {
     title: "Local VisRAG-Ret",
-    detail: "Downloads openbmb/VisRAG-Ret locally, uses 2304-dimensional page embeddings, and needs Qdrant reset."
+    detail:
+      "Downloads openbmb/VisRAG-Ret locally, uses 2304-dimensional page embeddings, and needs a fresh Qdrant collection."
   },
   custom: {
     title: "Custom",
@@ -102,6 +103,9 @@ function envPreview(settings: InstallSettings) {
     `PAPERMEMORY_VISRAG_DEVICE=${settings.visragDevice}`,
     `PAPERMEMORY_VISRAG_DTYPE=${settings.visragDtype}`,
     `PAPERMEMORY_VISRAG_TRUST_REMOTE_CODE=${settings.trustRemoteCode ? "true" : "false"}`,
+    `PAPERMEMORY_BYOK_ENABLE_IMAGE_CONTEXT=${settings.useMultimodalContext ? "true" : "false"}`,
+    `PAPERMEMORY_BYOK_MAX_EVIDENCE_IMAGES=${settings.maxEvidenceImages}`,
+    `PAPERMEMORY_BYOK_MAX_IMAGE_BYTES=2097152`,
     `PAPERMEMORY_BYOK_BASE_URL=${settings.providerBaseUrl}`,
     `PAPERMEMORY_BYOK_MODEL=${settings.providerModel}`
   ];
@@ -118,6 +122,8 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
   const selectedPreset =
     providerPresets.find((preset) => preset.company === settings.providerCompany) ??
     providerPresets[0];
+  const isRealVisrag = settings.visragBackend === "transformers";
+  const hasVisragDimensionMismatch = isRealVisrag && settings.qdrantVectorSize !== 2304;
 
   const applyProvider = (company: string) => {
     const preset = providerPresets.find((item) => item.company === company);
@@ -140,7 +146,9 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
       apiKey: settings.providerApiKey,
       temperature: 0.2,
       retrievalTopK: 5,
-      requireEvidence: true
+      requireEvidence: true,
+      useMultimodalContext: settings.useMultimodalContext,
+      maxEvidenceImages: settings.maxEvidenceImages
     });
   };
 
@@ -173,6 +181,12 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
             ))}
           </div>
           <p className="small-muted">{modeCopy[settings.mode].detail}</p>
+          {isRealVisrag ? (
+            <p className="inline-alert inline-alert--warning">
+              Real VisRAG-Ret uses 2304-dimensional vectors. Qdrant collection dimensions are fixed, so
+              switching from the 8D demo stub requires recreating the collection and reindexing PDFs.
+            </p>
+          ) : null}
         </div>
 
         <div className="setup-section">
@@ -262,6 +276,12 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
               onChange={(event) => update({ trustRemoteCode: event.target.checked })}
             />
           </div>
+          {hasVisragDimensionMismatch ? (
+            <p className="inline-alert inline-alert--error">
+              The transformers backend should use vector size 2304 for openbmb/VisRAG-Ret. A mismatched
+              collection will reject page embeddings until it is recreated.
+            </p>
+          ) : null}
         </div>
 
         <div className="setup-section">
@@ -298,7 +318,37 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
         </div>
 
         <div className="setup-section">
-          <h3>4. Generation provider</h3>
+          <h3>4. Multimodal context</h3>
+          <div className="toggle">
+            <label htmlFor="setup-multimodal-context">Attach retrieved page images</label>
+            <input
+              id="setup-multimodal-context"
+              type="checkbox"
+              checked={settings.useMultimodalContext}
+              onChange={(event) => update({ useMultimodalContext: event.target.checked })}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="setup-max-evidence-images">Max evidence images</label>
+            <input
+              id="setup-max-evidence-images"
+              type="number"
+              min="0"
+              max="10"
+              value={settings.maxEvidenceImages}
+              onChange={(event) =>
+                update({ maxEvidenceImages: Math.min(10, Math.max(0, Number(event.target.value))) })
+              }
+            />
+          </div>
+          <p className="small-muted">
+            Use a vision-capable OpenAI-compatible provider/model when this is enabled. Text-only
+            models should leave it off and rely on the EVisRAG-style evidence prompt.
+          </p>
+        </div>
+
+        <div className="setup-section">
+          <h3>5. Generation provider</h3>
           <div className="field-grid setup-field-grid">
             <div className="field">
               <label htmlFor="setup-provider">Company</label>
@@ -348,7 +398,7 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
         </div>
 
         <div className="setup-section setup-section--wide">
-          <h3>5. Generated local settings</h3>
+          <h3>6. Generated local settings</h3>
           <pre className="env-preview">{envPreview(settings)}</pre>
           <div className="command-grid" aria-label="Install commands">
             <code>docker compose up -d qdrant</code>

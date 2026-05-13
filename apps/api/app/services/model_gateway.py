@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+import base64
+import mimetypes
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -6,10 +10,14 @@ from pydantic import BaseModel
 
 from app.core.config import Settings
 
+ChatCompletionMessage = dict[str, Any]
+MessageContent = str | list[dict[str, Any]]
+SUPPORTED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
+
 
 class GenerationRequest(BaseModel):
     model: str
-    messages: list[dict[str, str]]
+    messages: list[ChatCompletionMessage]
     base_url: str | None = None
     api_key: str | None = None
     temperature: float = 0.2
@@ -18,6 +26,12 @@ class GenerationRequest(BaseModel):
 class GenerationResponse(BaseModel):
     text: str
     model: str
+
+
+@dataclass(frozen=True)
+class BuiltUserContent:
+    content: MessageContent
+    included_image_count: int
 
 
 class ModelGatewayError(HTTPException):
@@ -37,10 +51,13 @@ class ModelGateway:
         self.api_key = settings.byok_api_key
         self.model = settings.byok_model
         self.timeout_seconds = settings.byok_timeout_seconds
+        self.enable_image_context = settings.byok_enable_image_context
+        self.max_evidence_images = settings.byok_max_evidence_images
+        self.max_image_bytes = settings.byok_max_image_bytes
 
     async def generate(
         self,
-        messages: list[dict[str, str]],
+        messages: list[ChatCompletionMessage],
         model: str | None = None,
         base_url: str | None = None,
         api_key: str | None = None,
@@ -60,11 +77,11 @@ class ModelGateway:
             )
 
         url = f"{target_base_url.rstrip('/')}/chat/completions"
-        payload = {
-            "model": target_model,
-            "messages": messages,
-            "temperature": temperature,
-        }
+        payload = self.build_chat_completions_payload(
+            messages=messages,
+            model=target_model,
+            temperature=temperature,
+        )
         headers = {
             "Authorization": f"Bearer {target_api_key}",
             "Content-Type": "application/json",
@@ -87,6 +104,53 @@ class ModelGateway:
         text = self._extract_text(data)
         response_model = str(data.get("model") or target_model)
         return GenerationResponse(text=text, model=response_model)
+
+    def build_user_content(
+        self,
+        text: str,
+        image_paths: list[str],
+        enable_image_context: bool | None = None,
+        max_evidence_images: int | None = None,
+    ) -> BuiltUserContent:
+        use_image_context = self.enable_image_context if enable_image_context is None else enable_image_context
+        image_limit = self.max_evidence_images if max_evidence_images is None else max_evidence_images
+
+        if not use_image_context or image_limit <= 0:
+            return BuiltUserContent(content=text, included_image_count=0)
+
+        parts: list[dict[str, Any]] = [{"type": "text", "text": text}]
+        included = 0
+        for image_path in image_paths:
+            if included >= image_limit:
+                break
+            data_url = self._image_file_to_data_url(image_path)
+            if not data_url:
+                continue
+            parts.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": data_url,
+                    },
+                }
+            )
+            included += 1
+
+        if included == 0:
+            return BuiltUserContent(content=text, included_image_count=0)
+        return BuiltUserContent(content=parts, included_image_count=included)
+
+    @staticmethod
+    def build_chat_completions_payload(
+        messages: list[ChatCompletionMessage],
+        model: str,
+        temperature: float,
+    ) -> dict[str, Any]:
+        return {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
 
     def _extract_text(self, data: dict[str, Any]) -> str:
         try:
@@ -117,3 +181,19 @@ class ModelGateway:
 
         text = str(data)
         return text[:500]
+
+    def _image_file_to_data_url(self, image_path: str) -> str | None:
+        path = Path(image_path)
+        if not path.is_file():
+            return None
+
+        image_size = path.stat().st_size
+        if image_size <= 0 or image_size > self.max_image_bytes:
+            return None
+
+        mime_type, _ = mimetypes.guess_type(path.name)
+        if mime_type not in SUPPORTED_IMAGE_MIME_TYPES:
+            return None
+
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"

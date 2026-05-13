@@ -123,6 +123,8 @@ def test_search_pages_filters_and_maps_evidence_sorted_by_score() -> None:
                     "title": "VisRAG",
                     "caption": "Method overview",
                     "local_tag": "important",
+                    "embedding_model": "openbmb/VisRAG-Ret",
+                    "source_path": r"C:\Users\Miles CUI\private\source.pdf",
                 },
             ),
         ],
@@ -151,6 +153,32 @@ def test_search_pages_filters_and_maps_evidence_sorted_by_score() -> None:
     assert evidence[0].paper_id == "paper-1"
     assert evidence[0].page_number == 1
     assert evidence[0].image_path == "high.png"
+    assert evidence[0].image_url == "/papers/paper-1/pages/1/image"
     assert evidence[0].title == "VisRAG"
     assert evidence[0].caption == "Method overview"
-    assert evidence[0].metadata == {"local_tag": "important"}
+    assert evidence[0].metadata == {"embedding_model": "openbmb/VisRAG-Ret"}
+
+
+def test_search_pages_empty_paper_scope_returns_empty_without_querying_qdrant() -> None:
+    client = FakeQdrantClient(
+        exists=True,
+        hits=[
+            Hit(
+                score=0.9,
+                payload={"paper_id": "paper-1", "page_number": 1, "image_path": "high.png"},
+            )
+        ],
+    )
+    settings = Settings(qdrant_collection="test_pages", qdrant_vector_size=3)
+    store = VectorStore(settings=settings, client=client)
+
+    evidence = asyncio.run(
+        store.search_pages(
+            embedding=[0.3, 0.2, 0.1],
+            top_k=2,
+            paper_ids=[],
+        )
+    )
+
+    assert evidence == []
+    assert client.queries == []

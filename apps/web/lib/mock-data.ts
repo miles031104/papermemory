@@ -1,4 +1,12 @@
-import type { ChatMessage, EvidenceItem, ModelSettings, PaperSummary } from "@/lib/types";
+import type {
+  ChatMessage,
+  EvidenceItem,
+  ModelSettings,
+  PaperSummary,
+  ResearchConversation,
+  ResearchLibrary,
+  PaperGroup
+} from "@/lib/types";
 
 export const mockPapers: PaperSummary[] = [
   {
@@ -52,6 +60,112 @@ export const mockChatMessages: ChatMessage[] = [
   }
 ];
 
+export const mockResearchLibraries: ResearchLibrary[] = [
+  {
+    id: "library-visrag",
+    name: "Visual RAG Reading",
+    description: "Papers about page-image retrieval, evidence prompts, and BYOK multimodal QA.",
+    paperIds: ["paper-visrag", "paper-evisrag"],
+    groupIds: ["group-visrag-core"],
+    createdAt: "2026-05-04T10:00:00.000Z",
+    updatedAt: "2026-05-11T08:10:00.000Z"
+  },
+  {
+    id: "library-local-agents",
+    name: "Local Research Agents",
+    description: "Local-first agent memory, privacy boundaries, and personal paper workspaces.",
+    paperIds: ["paper-survey"],
+    groupIds: ["group-local-boundary"],
+    createdAt: "2026-05-05T10:00:00.000Z",
+    updatedAt: "2026-05-09T16:45:00.000Z"
+  },
+  {
+    id: "library-inbox",
+    name: "Inbox",
+    description: "Fresh uploads before they are organized into a research database.",
+    paperIds: [],
+    groupIds: ["group-inbox"],
+    createdAt: "2026-05-04T10:00:00.000Z",
+    updatedAt: "2026-05-04T10:00:00.000Z"
+  }
+];
+
+export const mockPaperGroups: PaperGroup[] = [
+  {
+    id: "group-visrag-core",
+    libraryId: "library-visrag",
+    name: "Core visual retrieval",
+    description: "Primary VisRAG and EVisRAG papers.",
+    paperIds: ["paper-visrag", "paper-evisrag"],
+    createdAt: "2026-05-04T10:00:00.000Z",
+    updatedAt: "2026-05-11T08:10:00.000Z"
+  },
+  {
+    id: "group-local-boundary",
+    libraryId: "library-local-agents",
+    name: "Privacy boundary",
+    description: "Local-first design references.",
+    paperIds: ["paper-survey"],
+    createdAt: "2026-05-05T10:00:00.000Z",
+    updatedAt: "2026-05-09T16:45:00.000Z"
+  },
+  {
+    id: "group-inbox",
+    libraryId: "library-inbox",
+    name: "Ungrouped uploads",
+    description: "Fresh local PDFs before organization.",
+    paperIds: [],
+    createdAt: "2026-05-04T10:00:00.000Z",
+    updatedAt: "2026-05-04T10:00:00.000Z"
+  }
+];
+
+export const mockConversations: ResearchConversation[] = [
+  {
+    id: "conversation-visrag-main",
+    libraryId: "library-visrag",
+    title: "Why page images?",
+    description: "Compare visual retrieval evidence with text-only chunks.",
+    messages: mockChatMessages,
+    createdAt: "2026-05-04T10:30:00.000Z",
+    updatedAt: "2026-05-11T08:10:00.000Z"
+  },
+  {
+    id: "conversation-prompting",
+    libraryId: "library-visrag",
+    title: "EVisRAG prompt shape",
+    description: "Draft prompt rules for grounded visual answers.",
+    messages: [
+      {
+        id: "msg-prompt-1",
+        role: "assistant",
+        content:
+          "Start from retrieved page images, cite page numbers, and explicitly say when evidence is insufficient.",
+        citations: [{ paperId: "paper-evisrag", label: "EVisRAG", page: 3 }]
+      }
+    ],
+    createdAt: "2026-05-06T12:00:00.000Z",
+    updatedAt: "2026-05-10T18:20:00.000Z"
+  },
+  {
+    id: "conversation-local-boundary",
+    libraryId: "library-local-agents",
+    title: "Local-first boundary",
+    description: "Track what must stay local before hosted collaboration exists.",
+    messages: [
+      {
+        id: "msg-local-1",
+        role: "assistant",
+        content:
+          "For the open-source MVP, PDFs, rendered pages, embeddings, API keys, and provider choices should remain under user control.",
+        citations: [{ paperId: "paper-survey", label: "Local-first Research Agents", page: 19 }]
+      }
+    ],
+    createdAt: "2026-05-07T09:15:00.000Z",
+    updatedAt: "2026-05-09T16:45:00.000Z"
+  }
+];
+
 export const mockEvidence: EvidenceItem[] = [
   {
     id: "ev-1",
@@ -90,5 +204,7 @@ export const mockModelSettings: ModelSettings = {
   apiKey: "",
   temperature: 0.2,
   retrievalTopK: 6,
-  requireEvidence: true
+  requireEvidence: true,
+  useMultimodalContext: true,
+  maxEvidenceImages: 4
 };

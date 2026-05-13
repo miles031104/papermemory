@@ -63,6 +63,14 @@ GET /papers/{paper_id}/status
 
 Returns page rendering, embedding, and indexing progress.
 
+## Get Page Image
+
+```http
+GET /papers/{paper_id}/pages/{page_number}/image
+```
+
+Returns the locally rendered PNG for one indexed PDF page. The API validates `paper_id` and `page_number`, resolves the path under PaperMemory's rendered-pages storage, and returns `404` when the paper or page image is missing.
+
 ## Search Pages
 
 ```http
@@ -80,6 +88,8 @@ Request:
 }
 ```
 
+`paper_ids` has explicit scope semantics: omit it or send `null` for an unfiltered local collection search, and send `[]` for an intentionally empty scope. An empty scope returns no evidence and must not fall back to the full collection.
+
 Response:
 
 ```json
@@ -90,7 +100,7 @@ Response:
       "paper_id": "paper_123",
       "page_number": 1,
       "score": 0.82,
-      "image_path": "storage/rendered_pages/paper_123/page-0001.png",
+      "image_url": "/papers/paper_123/pages/1/image",
       "title": "Optional title",
       "caption": null,
       "metadata": {
@@ -102,6 +112,33 @@ Response:
   "note": null
 }
 ```
+
+## Workspace
+
+```http
+GET /workspace
+```
+
+Returns local-first research workspace state from `storage/workspace/*.json`:
+
+- `libraries`: research databases/document libraries.
+- `conversations`: chats scoped to one library.
+- `paper_groups`: lightweight paper organization groups scoped to one library.
+
+The store creates a default `Inbox` library, default `Ungrouped uploads` paper group, and default conversation on first use. Existing local paper manifests are assigned to the Inbox.
+
+```http
+POST /workspace/libraries
+PATCH /workspace/libraries/{library_id}
+POST /workspace/libraries/{library_id}/conversations
+PATCH /workspace/conversations/{conversation_id}
+POST /workspace/libraries/{library_id}/paper-groups
+PATCH /workspace/paper-groups/{group_id}
+```
+
+`PATCH /workspace/libraries/{library_id}` accepts `paper_ids`, so the web app can assign a newly uploaded PDF to the active database without introducing a hosted account or external metadata database.
+
+Relationship updates are validated locally: library `paper_ids` must exist as paper manifests, library `group_ids` must belong to that library, and paper-group `paper_ids` must already belong to the same library.
 
 ## Chat
 
@@ -134,7 +171,7 @@ Response:
       "paper_id": "paper_123",
       "page_number": 7,
       "score": 0.91,
-      "image_path": "storage/rendered_pages/paper_123/page-0007.png",
+      "image_url": "/papers/paper_123/pages/7/image",
       "caption": "Ablation results"
     }
   ],
@@ -145,3 +182,5 @@ Response:
 ```
 
 API keys should be accepted only for the active request/session unless the user explicitly opts into another storage model. They must never appear in logs or persisted chat records.
+
+Frontend evidence cards should use `image_url` for browser-safe page previews. Public evidence responses must not expose local `image_path` values.

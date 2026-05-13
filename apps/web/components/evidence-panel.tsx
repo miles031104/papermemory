@@ -4,6 +4,7 @@ interface EvidencePanelProps {
   evidence: Array<EvidenceItem | ApiPageEvidence>;
   paperTitles?: Record<string, string>;
   note?: string | null;
+  apiBaseUrl?: string;
 }
 
 function isApiEvidence(item: EvidenceItem | ApiPageEvidence): item is ApiPageEvidence {
@@ -15,10 +16,37 @@ function toPercent(score: number) {
   return Math.max(0, Math.min(100, Math.round(normalized)));
 }
 
-function formatEvidence(item: EvidenceItem | ApiPageEvidence, paperTitles: Record<string, string>) {
+function resolveEvidenceImageUrl(imageUrl: string | null | undefined, apiBaseUrl?: string) {
+  if (!imageUrl) {
+    return null;
+  }
+
+  if (/^(https?:|data:|blob:)/.test(imageUrl)) {
+    return imageUrl;
+  }
+
+  const trimmedBaseUrl = apiBaseUrl?.trim();
+  if (!trimmedBaseUrl) {
+    return imageUrl;
+  }
+
+  try {
+    return new URL(imageUrl, `${trimmedBaseUrl.replace(/\/$/, "")}/`).toString();
+  } catch {
+    return imageUrl;
+  }
+}
+
+function formatEvidence(
+  item: EvidenceItem | ApiPageEvidence,
+  paperTitles: Record<string, string>,
+  apiBaseUrl?: string
+) {
   if (!isApiEvidence(item)) {
     return item;
   }
+
+  const imageUrl = resolveEvidenceImageUrl(item.image_url, apiBaseUrl);
 
   return {
     id: `${item.paper_id}-${item.page_number}-${item.score}`,
@@ -27,12 +55,13 @@ function formatEvidence(item: EvidenceItem | ApiPageEvidence, paperTitles: Recor
     page: item.page_number,
     retriever: "VisRAG-Ret" as const,
     confidence: toPercent(item.score),
-    snippet: item.caption ?? item.image_path ?? "Retrieved page image evidence."
+    snippet: item.caption ?? "Retrieved page image evidence is available for this result.",
+    imageUrl
   };
 }
 
-export function EvidencePanel({ evidence, paperTitles = {}, note }: EvidencePanelProps) {
-  const normalizedEvidence = evidence.map((item) => formatEvidence(item, paperTitles));
+export function EvidencePanel({ evidence, paperTitles = {}, note, apiBaseUrl }: EvidencePanelProps) {
+  const normalizedEvidence = evidence.map((item) => formatEvidence(item, paperTitles, apiBaseUrl));
 
   return (
     <section className="panel" aria-labelledby="evidence-title">
@@ -44,6 +73,9 @@ export function EvidencePanel({ evidence, paperTitles = {}, note }: EvidencePane
       </div>
       <div className="panel__body">
         {note ? <p className="inline-alert">{note}</p> : null}
+        {normalizedEvidence.length === 0 ? (
+          <p className="small-muted">No page evidence is attached to the current conversation yet.</p>
+        ) : null}
         <ol className="evidence-list" aria-label="Retrieved page evidence">
           {normalizedEvidence.map((item) => (
             <li className="evidence-item" key={item.id}>
@@ -58,6 +90,12 @@ export function EvidencePanel({ evidence, paperTitles = {}, note }: EvidencePane
                   p.{item.page}
                 </div>
               </div>
+              {item.imageUrl ? (
+                <figure className="page-preview">
+                  <img src={item.imageUrl} alt={`${item.paperTitle}, page ${item.page}`} loading="lazy" />
+                  <figcaption>Page image evidence</figcaption>
+                </figure>
+              ) : null}
               <p className="evidence-snippet">{item.snippet}</p>
               <div className="confidence-meter" aria-label={`${item.confidence}% confidence`}>
                 <span>{item.confidence}%</span>

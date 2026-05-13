@@ -1,7 +1,22 @@
 from datetime import datetime
 from enum import StrEnum
+import re
 
 from pydantic import BaseModel, Field
+
+
+PAPER_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
+_PAPER_ID_RE = re.compile(PAPER_ID_PATTERN)
+
+
+def is_safe_paper_id(paper_id: str) -> bool:
+    return bool(_PAPER_ID_RE.fullmatch(paper_id))
+
+
+def page_image_url(paper_id: str, page_number: int) -> str | None:
+    if page_number < 1 or not is_safe_paper_id(paper_id):
+        return None
+    return f"/papers/{paper_id}/pages/{page_number}/image"
 
 
 class PaperStatus(StrEnum):

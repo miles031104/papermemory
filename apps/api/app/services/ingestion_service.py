@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi import HTTPException, UploadFile
 
 from app.core.paths import StoragePaths
-from app.schemas.papers import PaperMetadata, PaperStatus
+from app.schemas.papers import PaperMetadata, PaperStatus, is_safe_paper_id
 from app.services.pdf_renderer import PdfRenderer
 
 
@@ -103,6 +103,25 @@ class IngestionService:
         if not metadata_path.exists():
             raise HTTPException(status_code=404, detail="Paper not found.")
         return PaperMetadata.model_validate_json(metadata_path.read_text(encoding="utf-8"))
+
+    def get_page_image_path(self, paper_id: str, page_number: int) -> Path:
+        if not is_safe_paper_id(paper_id):
+            raise HTTPException(status_code=400, detail="Invalid paper id.")
+        if page_number < 1:
+            raise HTTPException(status_code=400, detail="Page number must be at least 1.")
+
+        self.get_paper(paper_id)
+
+        image_path = self.paths.page_image_path(paper_id=paper_id, page_number=page_number).resolve()
+        rendered_root = self.paths.rendered_pages_dir.resolve()
+        try:
+            image_path.relative_to(rendered_root)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid page image path.") from exc
+
+        if not image_path.is_file():
+            raise HTTPException(status_code=404, detail="Page image not found.")
+        return image_path
 
     async def render_pdf_pages(self, paper_id: str) -> list[Path]:
         pdf_path = self.paths.paper_pdf_path(paper_id)

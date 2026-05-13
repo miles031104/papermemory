@@ -18,6 +18,8 @@ class ChatRequest(BaseModel):
     model: str | None = None
     api_key: str | None = Field(default=None, repr=False)
     temperature: float = Field(default=0.2, ge=0, le=2)
+    enable_image_context: bool | None = None
+    max_evidence_images: int | None = Field(default=None, ge=0, le=10)
 
 
 class ChatResponse(BaseModel):

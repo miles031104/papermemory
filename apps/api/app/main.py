@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.routers import chat, health, papers, retrieval
+from app.routers import chat, health, papers, retrieval, workspace
 
 
 def create_app() -> FastAPI:
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     api.include_router(papers.router, prefix="/papers", tags=["papers"])
     api.include_router(retrieval.router, prefix="/retrieval", tags=["retrieval"])
     api.include_router(chat.router, prefix="/chat", tags=["chat"])
+    api.include_router(workspace.router, prefix="/workspace", tags=["workspace"])
 
     return api
 

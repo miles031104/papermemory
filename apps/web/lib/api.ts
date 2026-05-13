@@ -5,6 +5,11 @@ import type {
   ApiPaperListResponse,
   ApiPaperUploadResponse,
   ApiRetrievalResponse,
+  ApiResearchConversation,
+  ApiResearchLibrary,
+  ApiPaperGroup,
+  ApiWorkspaceMessage,
+  ApiWorkspaceResponse,
 } from "@/lib/types";
 
 const defaultBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -44,6 +49,78 @@ export const paperMemoryApi = {
 
   listPapers(baseUrl?: string) {
     return requestJson<ApiPaperListResponse>("/papers", { baseUrl });
+  },
+
+  getWorkspace(baseUrl?: string) {
+    return requestJson<ApiWorkspaceResponse>("/workspace", { baseUrl });
+  },
+
+  createLibrary(request: { name: string; description?: string; paper_ids?: string[] }, baseUrl?: string) {
+    return requestJson<ApiResearchLibrary>("/workspace/libraries", {
+      method: "POST",
+      body: request,
+      baseUrl
+    });
+  },
+
+  updateLibrary(
+    libraryId: string,
+    request: { name?: string; description?: string; paper_ids?: string[]; group_ids?: string[] },
+    baseUrl?: string
+  ) {
+    return requestJson<ApiResearchLibrary>(`/workspace/libraries/${libraryId}`, {
+      method: "PATCH",
+      body: request,
+      baseUrl
+    });
+  },
+
+  createConversation(
+    libraryId: string,
+    request: { title?: string; description?: string; messages?: ApiWorkspaceMessage[] },
+    baseUrl?: string
+  ) {
+    return requestJson<ApiResearchConversation>(`/workspace/libraries/${libraryId}/conversations`, {
+      method: "POST",
+      body: request,
+      baseUrl
+    });
+  },
+
+  updateConversation(
+    conversationId: string,
+    request: { title?: string; description?: string; messages?: ApiWorkspaceMessage[] },
+    baseUrl?: string
+  ) {
+    return requestJson<ApiResearchConversation>(`/workspace/conversations/${conversationId}`, {
+      method: "PATCH",
+      body: request,
+      baseUrl
+    });
+  },
+
+  createPaperGroup(
+    libraryId: string,
+    request: { name: string; description?: string; paper_ids?: string[] },
+    baseUrl?: string
+  ) {
+    return requestJson<ApiPaperGroup>(`/workspace/libraries/${libraryId}/paper-groups`, {
+      method: "POST",
+      body: request,
+      baseUrl
+    });
+  },
+
+  updatePaperGroup(
+    groupId: string,
+    request: { name?: string; description?: string; paper_ids?: string[] },
+    baseUrl?: string
+  ) {
+    return requestJson<ApiPaperGroup>(`/workspace/paper-groups/${groupId}`, {
+      method: "PATCH",
+      body: request,
+      baseUrl
+    });
   },
 
   uploadPaper(file: File, metadata?: { title?: string }, baseUrl?: string) {

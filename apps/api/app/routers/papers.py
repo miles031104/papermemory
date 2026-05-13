@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Path, UploadFile
+from fastapi.responses import FileResponse
 
 from app.core.config import Settings, get_settings
 from app.core.paths import StoragePaths
-from app.schemas.papers import PaperListResponse, PaperUploadResponse
+from app.schemas.papers import PAPER_ID_PATTERN, PaperListResponse, PaperUploadResponse
 from app.services.indexing_service import IndexingService
 from app.services.ingestion_service import IngestionService
 from app.services.pdf_renderer import PdfRenderer
@@ -22,6 +23,15 @@ def get_ingestion_service(settings: Settings = Depends(get_settings)) -> Ingesti
         paths=StoragePaths(settings),
         renderer=renderer,
         indexing_service=indexing_service,
+        max_upload_bytes=settings.max_upload_bytes,
+    )
+
+
+def get_page_image_service(settings: Settings = Depends(get_settings)) -> IngestionService:
+    return IngestionService(
+        paths=StoragePaths(settings),
+        renderer=PdfRenderer(zoom=settings.pdf_render_zoom, max_pages=settings.max_pdf_pages),
+        indexing_service=None,
         max_upload_bytes=settings.max_upload_bytes,
     )
 
@@ -47,3 +57,17 @@ def get_paper_status(
     service: IngestionService = Depends(get_ingestion_service),
 ) -> PaperUploadResponse:
     return PaperUploadResponse(paper=service.get_paper(paper_id))
+
+
+@router.get("/{paper_id}/pages/{page_number}/image")
+def get_paper_page_image(
+    paper_id: str = Path(pattern=PAPER_ID_PATTERN),
+    page_number: int = Path(ge=1),
+    service: IngestionService = Depends(get_page_image_service),
+) -> FileResponse:
+    image_path = service.get_page_image_path(paper_id=paper_id, page_number=page_number)
+    return FileResponse(
+        path=image_path,
+        media_type="image/png",
+        filename=f"{paper_id}-page-{page_number:04d}.png",
+    )

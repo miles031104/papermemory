@@ -1,6 +1,7 @@
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.retrieval import PageEvidence
 from app.services.model_gateway import ModelGateway
+from app.services.page_image_resolver import PageImageResolver
 from app.services.vector_store import VectorStore
 from app.services.visrag_service import VisRAGService
 
@@ -13,20 +14,42 @@ class ChatService:
         visrag: VisRAGService,
         vector_store: VectorStore,
         model_gateway: ModelGateway,
+        page_image_resolver: PageImageResolver | None = None,
     ) -> None:
         self.visrag = visrag
         self.vector_store = vector_store
         self.model_gateway = model_gateway
+        self.page_image_resolver = page_image_resolver
 
     async def answer(self, request: ChatRequest) -> ChatResponse:
-        query_embedding = await self.visrag.embed_query(request.question)
-        evidence = await self.vector_store.search_pages(
-            embedding=query_embedding.vector,
-            top_k=request.top_k,
-            paper_ids=request.paper_ids,
-        )
+        if request.paper_ids == []:
+            evidence: list[PageEvidence] = []
+            prompt = self.build_evisrag_prompt(question=request.question, evidence=evidence)
+            return ChatResponse(
+                answer=(
+                    "No paper database scope is selected, so PaperMemory did not call the external "
+                    "model provider. Upload and index papers in the active database, then ask again."
+                ),
+                evidence=evidence,
+                model=request.model or self.model_gateway.model,
+                prompt_preview=prompt,
+                note="No paper scope selected; BYOK generation was skipped.",
+            )
+        else:
+            query_embedding = await self.visrag.embed_query(request.question)
+            evidence = await self.vector_store.search_pages(
+                embedding=query_embedding.vector,
+                top_k=request.top_k,
+                paper_ids=request.paper_ids,
+            )
         prompt = self.build_evisrag_prompt(question=request.question, evidence=evidence)
 
+        user_content = self.model_gateway.build_user_content(
+            text=prompt,
+            image_paths=self._resolve_authorized_image_paths(evidence),
+            enable_image_context=request.enable_image_context,
+            max_evidence_images=request.max_evidence_images,
+        )
         messages = [
             {
                 "role": "system",
@@ -36,7 +59,7 @@ class ChatService:
                 ),
             },
             *[message.model_dump() for message in request.messages],
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": user_content.content},
         ]
         generation = await self.model_gateway.generate(
             messages=messages,
@@ -51,14 +74,14 @@ class ChatService:
             evidence=evidence,
             model=generation.model,
             prompt_preview=prompt,
-            note="Generation is stubbed until a BYOK OpenAI-compatible provider is configured.",
+            note=self._build_generation_note(user_content.included_image_count),
         )
 
     def build_evisrag_prompt(self, question: str, evidence: list[PageEvidence]) -> str:
         evidence_block = "\n".join(
             (
                 f"- paper_id={item.paper_id}, page={item.page_number}, "
-                f"score={item.score:.4f}, image_path={item.image_path or 'unavailable'}, "
+                f"score={item.score:.4f}, image_ref={self._evidence_image_reference(item)}, "
                 f"caption={item.caption or 'none'}"
             )
             for item in evidence
@@ -74,3 +97,27 @@ class ChatService:
             f"Question:\n{question}\n\n"
             f"Retrieved visual evidence:\n{evidence_block}"
         )
+
+    @staticmethod
+    def _build_generation_note(included_image_count: int) -> str:
+        if included_image_count > 0:
+            return f"Generation request included {included_image_count} retrieved page image(s)."
+        return "Generation request used text-only evidence context."
+
+    @staticmethod
+    def _evidence_image_reference(item: PageEvidence) -> str:
+        image_url = getattr(item, "image_url", None)
+        if image_url:
+            return str(image_url)
+        return f"paper_id={item.paper_id}, page={item.page_number}"
+
+    def _resolve_authorized_image_paths(self, evidence: list[PageEvidence]) -> list[str]:
+        if self.page_image_resolver is None:
+            return []
+
+        image_paths: list[str] = []
+        for item in evidence:
+            image_path = self.page_image_resolver.resolve_evidence_image_path(item)
+            if image_path is not None:
+                image_paths.append(image_path)
+        return image_paths
