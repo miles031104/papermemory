@@ -20,16 +20,34 @@ Hosted collaboration is a future boundary, not the MVP default. Local mode shoul
 
 ### Prerequisites
 
-- Docker Desktop or another Docker Compose-compatible runtime.
 - Python 3.11+ for the API.
 - Node.js 20+ for the web app.
+- Docker Desktop or another Docker Compose-compatible runtime if you want the default Qdrant server mode.
 - A multimodal model API key from a provider you choose.
 
 The API uses PyMuPDF for the first VisRAG ingestion step: rendering each uploaded PDF page into a local page image.
 
+### Windows Setup
+
+The Windows setup script checks Python, npm, Docker availability, prepares `.env`, installs the API and web dependencies, and configures the vector database mode:
+
+```powershell
+.\scripts\setup-windows.ps1
+```
+
+By default, `-VectorMode auto` uses Docker Qdrant when Docker is installed and running. If Docker is not usable, the script asks whether to install Docker Desktop with `winget`; declining switches PaperMemory to Qdrant local mode. You can also choose explicitly:
+
+```powershell
+.\scripts\setup-windows.ps1 -VectorMode docker
+.\scripts\setup-windows.ps1 -VectorMode local
+.\scripts\setup-windows.ps1 -InstallDocker
+```
+
+The script only updates Qdrant-related environment values. It does not write API keys or Hugging Face tokens.
+
 ### Start Local Services
 
-Copy the environment template and start Qdrant:
+Copy the environment template and start Qdrant server mode:
 
 ```powershell
 Copy-Item .env.example .env
@@ -37,6 +55,21 @@ docker compose up -d qdrant
 ```
 
 Qdrant will be available at `http://localhost:6333`.
+
+If Docker is unavailable or unwanted, edit `.env` and add or update these lines:
+
+```dotenv
+PAPERMEMORY_QDRANT_MODE=local
+PAPERMEMORY_QDRANT_LOCAL_PATH=storage/qdrant_local
+```
+
+The default local database path is `storage/qdrant_local`. A relative `PAPERMEMORY_QDRANT_LOCAL_PATH` that starts with `storage` is resolved from the repo root; other relative local paths are resolved under `PAPERMEMORY_STORAGE_ROOT`. Local mode uses qdrant-client embedded storage and does not require Docker.
+
+To prepare Qdrant according to `.env` and see the startup commands:
+
+```powershell
+.\scripts\start-windows.ps1
+```
 
 ### Run The Apps
 
@@ -56,7 +89,7 @@ npm install
 npm run dev
 ```
 
-The web app should talk to the local API at `http://localhost:8000`, and the API should talk to Qdrant at `http://localhost:6333`.
+Open the web app at `http://localhost:3000` or `http://127.0.0.1:3000`; API CORS defaults allow both. The web app should talk to the local API at `http://localhost:8000`. In server/Docker mode, the API talks to Qdrant at `http://localhost:6333`; in local mode, it uses `PAPERMEMORY_QDRANT_LOCAL_PATH` and does not start an HTTP Qdrant service.
 
 ## Configuration
 
@@ -69,6 +102,7 @@ Real VisRAG-Ret pulls large model weights from Hugging Face, uses custom model c
 ## Documentation
 
 - [Implementation Path](docs/IMPLEMENTATION_PATH.md)
+- [Phase Goals](docs/PHASE_GOALS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Contract](docs/API.md)
 - [Security Model](docs/SECURITY.md)

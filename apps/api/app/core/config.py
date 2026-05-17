@@ -14,14 +14,21 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     environment: str = "local"
 
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+    )
 
     storage_root: Path = REPO_ROOT / "storage"
     max_upload_bytes: int = Field(default=100 * 1024 * 1024, gt=0)
     max_pdf_pages: int = Field(default=200, gt=0)
     pdf_render_zoom: float = Field(default=2.0, gt=0)
 
+    qdrant_mode: Literal["server", "local"] = "server"
     qdrant_url: str = "http://localhost:6333"
+    qdrant_local_path: Path = Path("storage") / "qdrant_local"
     qdrant_collection: str = "papermemory_pages"
     qdrant_vector_size: int = Field(
         default=8,
@@ -59,6 +66,12 @@ class Settings(BaseSettings):
     def resolve_local_paths(self) -> "Settings":
         if not self.storage_root.is_absolute():
             self.storage_root = REPO_ROOT / self.storage_root
+        if not self.qdrant_local_path.is_absolute():
+            first_part = self.qdrant_local_path.parts[0].lower() if self.qdrant_local_path.parts else ""
+            if first_part == "storage":
+                self.qdrant_local_path = REPO_ROOT / self.qdrant_local_path
+            else:
+                self.qdrant_local_path = self.storage_root / self.qdrant_local_path
         return self
 
 

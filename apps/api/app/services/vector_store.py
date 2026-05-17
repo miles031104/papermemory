@@ -77,7 +77,9 @@ class VectorStore:
         client: Any | None = None,
         qdrant_models: Any | None = None,
     ) -> None:
+        self.mode = settings.qdrant_mode
         self.url = settings.qdrant_url
+        self.local_path = settings.qdrant_local_path
         self.collection = settings.qdrant_collection
         self.vector_size = settings.qdrant_vector_size
         self.distance = settings.qdrant_distance
@@ -231,6 +233,10 @@ class VectorStore:
             raise VectorStoreUnavailable(
                 "qdrant-client is not installed. Install the API dependencies before using retrieval."
             ) from exc
+
+        if self.mode == "local":
+            self.local_path.mkdir(parents=True, exist_ok=True)
+            return async_client(path=str(self.local_path), timeout=self.timeout)
 
         return async_client(url=self.url, timeout=self.timeout)
 

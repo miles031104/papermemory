@@ -1,5 +1,7 @@
 import asyncio
+import sys
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any
 
 from app.core.config import Settings
@@ -182,3 +184,32 @@ def test_search_pages_empty_paper_scope_returns_empty_without_querying_qdrant() 
 
     assert evidence == []
     assert client.queries == []
+
+
+def test_local_mode_builds_path_client_and_creates_directory(tmp_path, monkeypatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    class FakeAsyncQdrantClient:
+        def __init__(self, **kwargs: Any) -> None:
+            calls.append(kwargs)
+
+    qdrant_module = ModuleType("qdrant_client")
+    qdrant_module.AsyncQdrantClient = FakeAsyncQdrantClient
+    models_module = ModuleType("qdrant_client.models")
+
+    monkeypatch.setitem(sys.modules, "qdrant_client", qdrant_module)
+    monkeypatch.setitem(sys.modules, "qdrant_client.models", models_module)
+
+    local_path = tmp_path / "qdrant-local"
+    settings = Settings(
+        storage_root=tmp_path / "storage",
+        qdrant_mode="local",
+        qdrant_local_path=local_path,
+        qdrant_timeout_seconds=9,
+    )
+
+    store = VectorStore(settings=settings)
+
+    assert store.client is not None
+    assert local_path.is_dir()
+    assert calls == [{"path": str(local_path), "timeout": 9.0}]
