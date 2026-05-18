@@ -71,6 +71,14 @@ To prepare Qdrant according to `.env` and see the startup commands:
 .\scripts\start-windows.ps1
 ```
 
+To verify the Phase 1 local evidence chain without Docker or an API key:
+
+```powershell
+.\scripts\smoke-phase1-local.ps1
+```
+
+The smoke creates temporary PDFs, renders them with PyMuPDF, indexes page images into embedded Qdrant local mode with the stub VisRAG backend, associates ready papers with libraries, verifies retrieval only returns evidence from the active library paper scope, and exercises `/chat` through a fake recording BYOK gateway without calling an external model.
+
 ### Run The Apps
 
 The backend and frontend live under `apps/api` and `apps/web` as they are implemented. The intended local flow is:
@@ -109,4 +117,4 @@ Real VisRAG-Ret pulls large model weights from Hugging Face, uses custom model c
 
 ## Project Status
 
-PaperMemory is early-stage. The current branch is focused on building the local developer path first: scaffold, ingest PDFs, render pages, index page images, retrieve evidence, and then add BYOK multimodal chat.
+PaperMemory is early-stage. Phase 1A has a repeatable local smoke for PDF -> page images -> Qdrant local -> evidence retrieval, Phase 1B verifies upload -> active library association -> library-scoped evidence search, and Phase 1C verifies the scoped BYOK chat path with a fake recording model gateway. The current branch is still focused on completing the rest of the local developer path: real VisRAG opt-in, evidence review polish, and frontend BYOK chat integration.

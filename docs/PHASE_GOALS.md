@@ -39,6 +39,12 @@ Done when:
 
 Goal: complete the main local paper assistant loop.
 
+Phase 1A status: a repeatable backend smoke now verifies the no-Docker local path from generated PDF -> PyMuPDF page image -> embedded Qdrant local index -> page evidence retrieval using the stub VisRAG backend. This proves the retrieval chain independently of external model downloads or BYOK chat.
+
+Phase 1B status: an API integration smoke verifies upload -> ready paper -> active library `paper_ids` association -> `/retrieval/search` with the active library's ready paper scope. It also verifies an empty library scope returns no evidence and does not search papers from other libraries. This still uses the stub VisRAG backend and does not claim real VisRAG-Ret or BYOK chat completion.
+
+Phase 1C status: an API integration smoke verifies upload -> ready/indexed paper -> active library `paper_ids` -> `/chat` retrieval with that paper scope -> EVisRAG-style prompt construction -> fake recording BYOK gateway response. It proves the backend chat orchestration is testable without external model calls, confirms page-image context does not expose local file paths, and confirms an empty active paper scope skips model generation.
+
 Required outcomes:
 
 - Upload local PDF files from the web UI.
@@ -47,9 +53,10 @@ Required outcomes:
 - Index page images into Qdrant.
 - Support the default stub retriever for lightweight local development.
 - Support real `openbmb/VisRAG-Ret` as an explicit opt-in backend.
-- Search page evidence inside the active library.
+- Search page evidence inside the active library. Phase 1B covers this for uploaded ready papers using explicit active-library `paper_ids`.
 - Ask questions with BYOK OpenAI-compatible model providers.
 - Attach selected page images to multimodal chat requests when enabled.
+- Route scoped `/chat` requests through retrieval, EVisRAG-style prompting, and a BYOK gateway boundary. Phase 1C covers this with a fake recording gateway, not a real provider call.
 - Return answers with page-level citations and visible evidence.
 - Never call the external model when the active paper scope is empty.
 
