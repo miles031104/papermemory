@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ChatPanel } from "@/components/chat-panel";
 import { EvidencePanel } from "@/components/evidence-panel";
-import { ModelSettingsPanel } from "@/components/model-settings-panel";
 import { PaperLibrary } from "@/components/paper-library";
 import { PaperUploadPanel } from "@/components/paper-upload-panel";
-import { ResearchSidebar } from "@/components/research-sidebar";
-import { SetupWizard } from "@/components/setup-wizard";
+import { ResearchSidebar, type WorkspaceView } from "@/components/research-sidebar";
+import { SettingsView } from "@/components/settings-view";
 import { defaultApiBaseUrl, paperMemoryApi } from "@/lib/api";
 import {
   mockConversations,
@@ -223,6 +222,7 @@ export function WorkspaceClient() {
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<WorkspaceView>("research");
 
   const paperTitles = useMemo(
     () => Object.fromEntries(papers.map((paper) => [paper.id, paper.title])),
@@ -708,78 +708,89 @@ export function WorkspaceClient() {
 
   return (
     <main className="app-shell">
-      <section className="workspace-grid" aria-label="PaperMemory workspace">
+      <section
+        className={`workspace-grid workspace-grid--${activeView}`}
+        aria-label="PaperMemory workspace"
+      >
         <ResearchSidebar
           libraries={libraries}
           conversations={conversations}
           papers={papers}
           activeLibraryId={activeLibrary?.id ?? activeLibraryId}
           activeConversationId={activeConversation?.id ?? activeConversationId}
+          activeView={activeView}
           apiLabel={apiStatus.label}
           apiConnection={apiStatus.connection}
           isPersisted={isWorkspacePersisted}
+          onViewChange={setActiveView}
           onSelectLibrary={handleSelectLibrary}
           onSelectConversation={handleSelectConversation}
           onCreateConversation={handleCreateConversation}
           onCreateLibrary={createLibrary}
         />
 
-        <div className="workspace-main">
-          <PaperUploadPanel
-            title={uploadTitle}
-            selectedFile={selectedFile}
-            fileInputKey={fileInputKey}
-            isUploading={isUploading}
-            message={uploadMessage}
-            error={uploadError}
-            onTitleChange={setUploadTitle}
-            onFileChange={setSelectedFile}
-            onUpload={handleUpload}
-          />
-          <ChatPanel
-            messages={messages}
-            question={question}
-            isSubmitting={isChatSubmitting}
-            title={activeConversation?.title ?? "Research chat"}
-            contextLabel={activeLibrary?.name ?? "Research database"}
-            libraryDescription={activeLibrary?.description ?? "Ask questions over the active paper database."}
-            error={chatError}
-            onQuestionChange={setQuestion}
-            onSubmit={handleSubmitQuestion}
-            onReset={resetChat}
-            onSearchEvidence={handleSearchEvidence}
-          />
-        </div>
+        {activeView === "research" ? (
+          <>
+            <div className="workspace-main">
+              <PaperUploadPanel
+                title={uploadTitle}
+                selectedFile={selectedFile}
+                fileInputKey={fileInputKey}
+                isUploading={isUploading}
+                message={uploadMessage}
+                error={uploadError}
+                onTitleChange={setUploadTitle}
+                onFileChange={setSelectedFile}
+                onUpload={handleUpload}
+              />
+              <ChatPanel
+                messages={messages}
+                question={question}
+                isSubmitting={isChatSubmitting}
+                title={activeConversation?.title ?? "Research chat"}
+                contextLabel={activeLibrary?.name ?? "Research database"}
+                libraryDescription={activeLibrary?.description ?? "Ask questions over the active paper database."}
+                error={chatError}
+                onQuestionChange={setQuestion}
+                onSubmit={handleSubmitQuestion}
+                onReset={resetChat}
+                onSearchEvidence={handleSearchEvidence}
+              />
+            </div>
 
-        <aside className="side-stack workspace-aside" aria-label="Retrieval and model controls">
-          <section className="panel active-library-panel" aria-labelledby="active-library-title">
-            <div className="panel__header">
-              <div>
-                <p className="eyebrow">Active database</p>
-                <h2 id="active-library-title">{activeLibrary?.name ?? "Research database"}</h2>
-                <p>{apiStatus.detail}</p>
-                <p className="small-muted">
-                  {activeLibraryGroups.length} paper groups in this local database.
-                </p>
-              </div>
-            </div>
-            <div className="panel__body">
-              <PaperLibrary papers={activeLibraryPapers} embedded />
-            </div>
-          </section>
-          <ModelSettingsPanel settings={settings} onChange={setSettings} />
-          <EvidencePanel
-            evidence={evidence}
-            paperTitles={paperTitles}
-            note={evidenceNote}
-            apiBaseUrl={installSettings.apiBaseUrl}
+            <aside className="side-stack workspace-aside" aria-label="Active database and retrieval evidence">
+              <section className="panel active-library-panel" aria-labelledby="active-library-title">
+                <div className="panel__header">
+                  <div>
+                    <p className="eyebrow">Active database</p>
+                    <h2 id="active-library-title">{activeLibrary?.name ?? "Research database"}</h2>
+                    <p>{apiStatus.detail}</p>
+                    <p className="small-muted">
+                      {activeLibraryGroups.length} paper groups in this local database.
+                    </p>
+                  </div>
+                </div>
+                <div className="panel__body">
+                  <PaperLibrary papers={activeLibraryPapers} embedded />
+                </div>
+              </section>
+              <EvidencePanel
+                evidence={evidence}
+                paperTitles={paperTitles}
+                note={evidenceNote}
+                apiBaseUrl={installSettings.apiBaseUrl}
+              />
+            </aside>
+          </>
+        ) : (
+          <SettingsView
+            modelSettings={settings}
+            installSettings={installSettings}
+            apiDetail={apiStatus.detail}
+            onModelSettingsChange={setSettings}
+            onInstallSettingsChange={setInstallSettings}
           />
-          <SetupWizard
-            settings={installSettings}
-            onChange={setInstallSettings}
-            onApplyModelSettings={setSettings}
-          />
-        </aside>
+        )}
       </section>
     </main>
   );

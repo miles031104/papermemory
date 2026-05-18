@@ -15,6 +15,7 @@
 
 ### Improved
 
+- Split the web UI into a focused research workspace and a separate settings view for model, provider, HF, and multimodal setup.
 - Documented the difference between Docker Qdrant server mode and embedded local Qdrant storage.
 - Updated local setup guidance so users can open the web app through either `localhost:3000` or `127.0.0.1:3000`.
 - Expanded default CORS origins to avoid false offline states when users open the app through the loopback address.

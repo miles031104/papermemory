@@ -155,9 +155,14 @@ h3 {
   min-height: calc(100vh - 28px);
 }
 
+.workspace-grid--settings {
+  grid-template-columns: minmax(248px, 0.72fr) minmax(0, 2.38fr);
+}
+
 .research-sidebar,
 .workspace-main,
-.workspace-aside {
+.workspace-aside,
+.settings-view {
   min-width: 0;
 }
 
@@ -165,7 +170,7 @@ h3 {
   position: sticky;
   top: 14px;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: 14px;
   height: calc(100vh - 28px);
   overflow: hidden;
@@ -195,6 +200,36 @@ h3 {
   color: var(--text-muted);
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.sidebar-view-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.sidebar-view-nav__item {
+  min-height: 36px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.sidebar-view-nav__item:last-child {
+  border-right: 0;
+}
+
+.sidebar-view-nav__item:hover,
+.sidebar-view-nav__item--active {
+  background: var(--surface);
+  color: var(--accent-strong);
 }
 
 .sidebar-section {
@@ -344,6 +379,64 @@ h3 {
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   min-height: 0;
+}
+
+.settings-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.settings-view__header {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+
+.settings-view__header p {
+  margin-bottom: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.settings-view__content {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.58fr);
+  gap: 12px;
+  min-height: 0;
+  align-items: start;
+}
+
+.settings-view__model {
+  min-width: 0;
+}
+
+.settings-view .setup-panel {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  max-width: none;
+  margin: 0;
+}
+
+.settings-view .setup-panel > .panel__header {
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.settings-view .setup-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+}
+
+.settings-view .command-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .setup-panel {
@@ -865,6 +958,14 @@ h3 {
     grid-template-columns: minmax(230px, 0.72fr) minmax(420px, 1.28fr);
   }
 
+  .workspace-grid--settings {
+    grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.28fr);
+  }
+
+  .settings-view__content {
+    grid-template-columns: 1fr;
+  }
+
   .side-stack {
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -898,7 +999,8 @@ h3 {
 
   .workspace-grid,
   .setup-grid,
-  .side-stack {
+  .side-stack,
+  .settings-view__content {
     grid-template-columns: 1fr;
   }
 

@@ -47,6 +47,8 @@ Phase 1C status: an API integration smoke verifies upload -> ready/indexed paper
 
 Phase 1D status: a browser config smoke verifies the web app's initial API URL follows `NEXT_PUBLIC_API_BASE_URL` for isolated ports while preserving the default `http://localhost:8000` local path.
 
+Phase 1E status: the frontend now separates the research workspace from local model/install settings, keeping upload, chat, active database context, and retrieval evidence in the main workspace while moving provider, API key, Hugging Face, and multimodal setup into a dedicated settings view.
+
 Required outcomes:
 
 - Upload local PDF files from the web UI.

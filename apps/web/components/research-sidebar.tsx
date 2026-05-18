@@ -2,15 +2,19 @@ import { type FormEvent, useState } from "react";
 
 import type { PaperSummary, ResearchConversation, ResearchLibrary } from "@/lib/types";
 
+export type WorkspaceView = "research" | "settings";
+
 interface ResearchSidebarProps {
   libraries: ResearchLibrary[];
   conversations: ResearchConversation[];
   papers: PaperSummary[];
   activeLibraryId: string;
   activeConversationId: string;
+  activeView: WorkspaceView;
   apiLabel: string;
   apiConnection: "checking" | "online" | "offline";
   isPersisted: boolean;
+  onViewChange: (view: WorkspaceView) => void;
   onSelectLibrary: (libraryId: string) => void;
   onSelectConversation: (conversationId: string) => void;
   onCreateConversation: () => void;
@@ -36,9 +40,11 @@ export function ResearchSidebar({
   papers,
   activeLibraryId,
   activeConversationId,
+  activeView,
   apiLabel,
   apiConnection,
   isPersisted,
+  onViewChange,
   onSelectLibrary,
   onSelectConversation,
   onCreateConversation,
@@ -92,6 +98,27 @@ export function ResearchSidebar({
           <span className={`status-dot status-dot--${apiConnection}`} aria-hidden="true" />
           <span>{apiLabel}</span>
         </div>
+      </div>
+
+      <div className="sidebar-view-nav" role="tablist" aria-label="Workspace views">
+        <button
+          className={`sidebar-view-nav__item${activeView === "research" ? " sidebar-view-nav__item--active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={activeView === "research"}
+          onClick={() => onViewChange("research")}
+        >
+          Workspace
+        </button>
+        <button
+          className={`sidebar-view-nav__item${activeView === "settings" ? " sidebar-view-nav__item--active" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={activeView === "settings"}
+          onClick={() => onViewChange("settings")}
+        >
+          Settings
+        </button>
       </div>
 
       <nav className="sidebar-section" aria-labelledby="database-title">
