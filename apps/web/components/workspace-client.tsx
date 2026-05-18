@@ -9,7 +9,7 @@ import { PaperLibrary } from "@/components/paper-library";
 import { PaperUploadPanel } from "@/components/paper-upload-panel";
 import { ResearchSidebar } from "@/components/research-sidebar";
 import { SetupWizard } from "@/components/setup-wizard";
-import { paperMemoryApi } from "@/lib/api";
+import { defaultApiBaseUrl, paperMemoryApi } from "@/lib/api";
 import {
   mockConversations,
   mockEvidence,
@@ -56,7 +56,7 @@ const statusMap: Record<ApiPaperMetadata["status"], PaperStatus> = {
 
 const initialInstallSettings: InstallSettings = {
   mode: "demo",
-  apiBaseUrl: "http://localhost:8000",
+  apiBaseUrl: defaultApiBaseUrl,
   qdrantUrl: "http://localhost:6333",
   storageRoot: "./storage",
   hfToken: "",

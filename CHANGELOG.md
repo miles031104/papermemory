@@ -21,6 +21,7 @@
 
 ### Fixed
 
+- Fixed the web app's initial API URL so Phase 1D isolated-port smokes follow `NEXT_PUBLIC_API_BASE_URL` while defaulting to `http://localhost:8000`.
 - Fixed misleading README guidance for Qdrant local mode by showing persistent `.env` configuration instead of invalid PowerShell assignments.
 
 ### Developer Notes

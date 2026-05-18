@@ -12,7 +12,7 @@ import type {
   ApiWorkspaceResponse,
 } from "@/lib/types";
 
-const defaultBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export const defaultApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: BodyInit | Record<string, unknown>;
@@ -24,7 +24,7 @@ async function requestJson<TResponse>(
   { body, headers, baseUrl, ...options }: RequestOptions = {}
 ): Promise<TResponse> {
   const isFormBody = body instanceof FormData;
-  const apiBaseUrl = baseUrl?.trim() || defaultBaseUrl;
+  const apiBaseUrl = baseUrl?.trim() || defaultApiBaseUrl;
   const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}${path}`, {
     ...options,
     headers: {

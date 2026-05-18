@@ -45,6 +45,8 @@ Phase 1B status: an API integration smoke verifies upload -> ready paper -> acti
 
 Phase 1C status: an API integration smoke verifies upload -> ready/indexed paper -> active library `paper_ids` -> `/chat` retrieval with that paper scope -> EVisRAG-style prompt construction -> fake recording BYOK gateway response. It proves the backend chat orchestration is testable without external model calls, confirms page-image context does not expose local file paths, and confirms an empty active paper scope skips model generation.
 
+Phase 1D status: a browser config smoke verifies the web app's initial API URL follows `NEXT_PUBLIC_API_BASE_URL` for isolated ports while preserving the default `http://localhost:8000` local path.
+
 Required outcomes:
 
 - Upload local PDF files from the web UI.

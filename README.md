@@ -97,7 +97,7 @@ npm install
 npm run dev
 ```
 
-Open the web app at `http://localhost:3000` or `http://127.0.0.1:3000`; API CORS defaults allow both. The web app should talk to the local API at `http://localhost:8000`. In server/Docker mode, the API talks to Qdrant at `http://localhost:6333`; in local mode, it uses `PAPERMEMORY_QDRANT_LOCAL_PATH` and does not start an HTTP Qdrant service.
+Open the web app at `http://localhost:3000` or `http://127.0.0.1:3000`; API CORS defaults allow both. The web app should talk to the local API at `http://localhost:8000`, or `NEXT_PUBLIC_API_BASE_URL` when you run an isolated-port smoke. In server/Docker mode, the API talks to Qdrant at `http://localhost:6333`; in local mode, it uses `PAPERMEMORY_QDRANT_LOCAL_PATH` and does not start an HTTP Qdrant service.
 
 ## Configuration
 
@@ -117,4 +117,4 @@ Real VisRAG-Ret pulls large model weights from Hugging Face, uses custom model c
 
 ## Project Status
 
-PaperMemory is early-stage. Phase 1A has a repeatable local smoke for PDF -> page images -> Qdrant local -> evidence retrieval, Phase 1B verifies upload -> active library association -> library-scoped evidence search, and Phase 1C verifies the scoped BYOK chat path with a fake recording model gateway. The current branch is still focused on completing the rest of the local developer path: real VisRAG opt-in, evidence review polish, and frontend BYOK chat integration.
+PaperMemory is early-stage. Phase 1A has a repeatable local smoke for PDF -> page images -> Qdrant local -> evidence retrieval, Phase 1B verifies upload -> active library association -> library-scoped evidence search, Phase 1C verifies the scoped BYOK chat path with a fake recording model gateway, and Phase 1D verifies isolated-port browser config. The current branch is still focused on completing the rest of the local developer path: real VisRAG opt-in, evidence review polish, and frontend BYOK chat integration.
