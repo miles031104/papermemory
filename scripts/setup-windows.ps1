@@ -15,6 +15,8 @@ $WebDir = Join-Path $RepoRoot "apps\web"
 $VenvDir = Join-Path $ApiDir ".venv"
 $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
 
+. (Join-Path $PSScriptRoot "npm-command.ps1")
+
 function Test-CommandExists {
     param([Parameter(Mandatory = $true)][string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -127,9 +129,7 @@ function Require-Tooling {
     if (-not (Test-CommandExists "python")) {
         throw "Python 3.11+ was not found on PATH."
     }
-    if (-not (Test-CommandExists "npm")) {
-        throw "npm was not found on PATH. Install Node.js 20+ and rerun setup."
-    }
+    Resolve-NpmCommand | Out-Null
 }
 
 function Configure-Qdrant {
@@ -184,7 +184,8 @@ function Install-WebDependencies {
     Write-Host "Installing web dependencies..."
     Push-Location $RepoRoot
     try {
-        & npm install
+        $npmCommand = Resolve-NpmCommand
+        & $npmCommand install
         if ($LASTEXITCODE -ne 0) {
             throw "Failed to install web dependencies."
         }
@@ -208,4 +209,4 @@ Write-Host "  .\scripts\start-windows.ps1"
 Write-Host ""
 Write-Host "Manual commands:"
 Write-Host "  cd apps\api; .\.venv\Scripts\Activate.ps1; uvicorn app.main:app --reload --port 8000"
-Write-Host "  cd apps\web; npm run dev"
+Write-Host "  cd apps\web; $(Format-NpmPowerShellCommand 'run dev')"

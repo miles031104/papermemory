@@ -9,6 +9,8 @@ $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $EnvExamplePath = Join-Path $RepoRoot ".env.example"
 $EnvPath = Join-Path $RepoRoot ".env"
 
+. (Join-Path $PSScriptRoot "npm-command.ps1")
+
 function Test-CommandExists {
     param([Parameter(Mandatory = $true)][string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -76,6 +78,14 @@ if (-not $SkipQdrant) {
     }
 }
 
+$npmRunDevCommand = "npm run dev"
+try {
+    $npmRunDevCommand = Format-NpmPowerShellCommand "run dev"
+}
+catch {
+    $npmRunDevCommand = "npm run dev"
+}
+
 Write-Host ""
 Write-Host "Run the API in this terminal:"
 Write-Host "  cd apps\api"
@@ -84,7 +94,7 @@ Write-Host "  uvicorn app.main:app --reload --port 8000"
 Write-Host ""
 Write-Host "Run the web app in a second terminal:"
 Write-Host "  cd apps\web"
-Write-Host "  npm run dev"
+Write-Host "  $npmRunDevCommand"
 Write-Host ""
 Write-Host "Open the web app at http://localhost:3000 or http://127.0.0.1:3000"
 Write-Host "API CORS defaults allow both local web origins."
