@@ -1,3 +1,4 @@
+import { findProviderPreset, providerPresets } from "@/lib/provider-presets";
 import type { ModelSettings } from "@/lib/types";
 
 interface ModelSettingsPanelProps {
@@ -8,6 +9,22 @@ interface ModelSettingsPanelProps {
 export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelProps) {
   const updateSettings = (patch: Partial<ModelSettings>) => {
     onChange({ ...settings, ...patch });
+  };
+  const activePreset = findProviderPreset(settings.providerCompany);
+  const customPreset = findProviderPreset("Custom") ?? providerPresets[0];
+  const selectedPreset = activePreset ?? customPreset;
+  const showCompanyLabelInput = !activePreset || activePreset.company === "Custom";
+
+  const applyPreset = (company: string) => {
+    const preset = findProviderPreset(company);
+    if (!preset) {
+      return;
+    }
+    updateSettings({
+      providerCompany: preset.company,
+      baseUrl: preset.baseUrl,
+      model: preset.model
+    });
   };
 
   return (
@@ -37,14 +54,33 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
 
         <div className="field">
           <label htmlFor="provider-company">Company</label>
-          <input
+          <select
             id="provider-company"
             name="provider-company"
-            type="text"
-            value={settings.providerCompany}
-            onChange={(event) => updateSettings({ providerCompany: event.target.value })}
-          />
+            value={activePreset?.company ?? "Custom"}
+            onChange={(event) => applyPreset(event.target.value)}
+          >
+            {providerPresets.map((preset) => (
+              <option key={preset.company} value={preset.company}>
+                {preset.company}
+              </option>
+            ))}
+          </select>
         </div>
+
+        {showCompanyLabelInput ? (
+          <div className="field">
+            <label htmlFor="provider-company-label">Company label</label>
+            <input
+              id="provider-company-label"
+              name="provider-company-label"
+              type="text"
+              value={settings.providerCompany}
+              onChange={(event) => updateSettings({ providerCompany: event.target.value })}
+              placeholder="My local endpoint"
+            />
+          </div>
+        ) : null}
 
         <div className="field">
           <label htmlFor="base-url">Base URL</label>
@@ -147,7 +183,9 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
           />
         </div>
 
-        <p className="small-muted">The API key stays in React state and is sent only with chat requests.</p>
+        <p className="small-muted">
+          {selectedPreset.note} The API key stays in React state and is sent only with chat requests.
+        </p>
       </form>
     </section>
   );

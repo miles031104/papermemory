@@ -12,10 +12,12 @@
 - Added Qdrant local mode so users can run the vector database without Docker when they prefer a simpler local setup.
 - Added a Windows start helper that explains how to launch Qdrant, the FastAPI backend, and the Next.js web app.
 - Added a phase goals document that keeps the roadmap focused on the core PaperMemory MVP and paper manager before LLM Wiki expansion.
+- Added shared BYOK provider presets and documentation for mainstream OpenAI-compatible providers, including Gemini, DeepSeek, Kimi/Moonshot, MiniMax, OpenRouter, MiMo through OpenRouter, Together AI, DashScope/Qwen, Mistral, Groq, xAI, and Custom endpoints.
 
 ### Improved
 
 - Split the web UI into a focused research workspace and a separate settings view for model, provider, HF, and multimodal setup.
+- Reworked model settings so provider company selection uses the shared preset list while keeping base URL and model editable.
 - Documented the difference between Docker Qdrant server mode and embedded local Qdrant storage.
 - Updated local setup guidance so users can open the web app through either `localhost:3000` or `127.0.0.1:3000`.
 - Expanded default CORS origins to avoid false offline states when users open the app through the loopback address.

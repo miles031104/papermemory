@@ -1,56 +1,11 @@
+import { findProviderPreset, providerPresets } from "@/lib/provider-presets";
 import type { InstallMode, InstallSettings, ModelSettings } from "@/lib/types";
-
-interface ProviderPreset {
-  company: string;
-  baseUrl: string;
-  model: string;
-  note: string;
-}
 
 interface SetupWizardProps {
   settings: InstallSettings;
   onChange: (settings: InstallSettings) => void;
   onApplyModelSettings: (settings: ModelSettings) => void;
 }
-
-const providerPresets: ProviderPreset[] = [
-  {
-    company: "OpenAI",
-    baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o",
-    note: "OpenAI-compatible chat completions."
-  },
-  {
-    company: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    model: "deepseek-chat",
-    note: "OpenAI-compatible endpoint."
-  },
-  {
-    company: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    model: "openai/gpt-4o",
-    note: "Routes to multiple model companies through one key."
-  },
-  {
-    company: "Together AI",
-    baseUrl: "https://api.together.xyz/v1",
-    model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-    note: "OpenAI-compatible hosted open models."
-  },
-  {
-    company: "Alibaba DashScope",
-    baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-    model: "qwen-vl-plus",
-    note: "OpenAI-compatible Qwen endpoint."
-  },
-  {
-    company: "Custom",
-    baseUrl: "http://localhost:8001/v1",
-    model: "local-vlm",
-    note: "Any local or hosted OpenAI-compatible server."
-  }
-];
 
 const modeCopy: Record<InstallMode, { title: string; detail: string }> = {
   demo: {
@@ -119,14 +74,15 @@ function envPreview(settings: InstallSettings) {
 
 export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupWizardProps) {
   const update = (patch: Partial<InstallSettings>) => onChange({ ...settings, ...patch });
-  const selectedPreset =
-    providerPresets.find((preset) => preset.company === settings.providerCompany) ??
-    providerPresets[0];
+  const activePreset = findProviderPreset(settings.providerCompany);
+  const customPreset = findProviderPreset("Custom") ?? providerPresets[0];
+  const selectedPreset = activePreset ?? customPreset;
+  const showCompanyLabelInput = !activePreset || activePreset.company === "Custom";
   const isRealVisrag = settings.visragBackend === "transformers";
   const hasVisragDimensionMismatch = isRealVisrag && settings.qdrantVectorSize !== 2304;
 
   const applyProvider = (company: string) => {
-    const preset = providerPresets.find((item) => item.company === company);
+    const preset = findProviderPreset(company);
     if (!preset) {
       return;
     }
@@ -354,7 +310,7 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
               <label htmlFor="setup-provider">Company</label>
               <select
                 id="setup-provider"
-                value={settings.providerCompany}
+                value={activePreset?.company ?? "Custom"}
                 onChange={(event) => applyProvider(event.target.value)}
               >
                 {providerPresets.map((preset) => (
@@ -364,6 +320,18 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
                 ))}
               </select>
             </div>
+            {showCompanyLabelInput ? (
+              <div className="field">
+                <label htmlFor="setup-provider-label">Company label</label>
+                <input
+                  id="setup-provider-label"
+                  type="text"
+                  value={settings.providerCompany}
+                  onChange={(event) => update({ providerCompany: event.target.value })}
+                  placeholder="My local endpoint"
+                />
+              </div>
+            ) : null}
             <div className="field">
               <label htmlFor="setup-provider-base">Base URL</label>
               <input

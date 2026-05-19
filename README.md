@@ -103,6 +103,8 @@ Open the web app at `http://localhost:3000` or `http://127.0.0.1:3000`; API CORS
 
 Use `.env.example` as the canonical list of local settings. PaperMemory should prefer session-only API keys for BYOK chat; environment keys are useful for local developer testing but must not be logged, committed, or sent to hosted services without explicit user consent.
 
+BYOK provider presets for OpenAI-compatible APIs are documented in [BYOK Provider Presets](docs/BYOK_PROVIDERS.md). The preset list covers OpenAI, Gemini, DeepSeek, Kimi/Moonshot, MiniMax, OpenRouter, MiMo through OpenRouter, Together AI, DashScope/Qwen, Mistral, Groq, xAI, and Custom endpoints.
+
 The default retriever backend is `PAPERMEMORY_VISRAG_BACKEND=stub`, which keeps local development lightweight and uses `PAPERMEMORY_QDRANT_VECTOR_SIZE=8`. To use the real [`openbmb/VisRAG-Ret`](https://huggingface.co/openbmb/VisRAG-Ret) adapter, install the API extra with `pip install -e ".[visrag]"`, set `PAPERMEMORY_VISRAG_BACKEND=transformers`, set `PAPERMEMORY_VISRAG_TRUST_REMOTE_CODE=true`, and recreate the Qdrant collection with `PAPERMEMORY_QDRANT_VECTOR_SIZE=2304`.
 
 Real VisRAG-Ret pulls large model weights from Hugging Face, uses custom model code loaded with `trust_remote_code`, and is best run with a CUDA GPU. The model card's example dependencies include PyTorch, torchvision, Transformers, sentencepiece, and Pillow; its query example prefixes text with `Represent this query for retrieving relevant documents:`. The model card also notes that it is not deployed by Hugging Face Inference Providers, so PaperMemory runs it locally through the Transformers adapter.
@@ -113,6 +115,7 @@ Real VisRAG-Ret pulls large model weights from Hugging Face, uses custom model c
 - [Phase Goals](docs/PHASE_GOALS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Contract](docs/API.md)
+- [BYOK Provider Presets](docs/BYOK_PROVIDERS.md)
 - [Security Model](docs/SECURITY.md)
 
 ## Project Status
