@@ -84,12 +84,12 @@ export function ChatPanel({
             name="question"
             value={question}
             onChange={(event) => onQuestionChange(event.target.value)}
-            placeholder="Compare the retrieval evidence behind the main contribution."
+            placeholder="Ask about the active papers, or start a general research conversation."
           />
         </div>
         <div className="button-row">
           <button className="button button--primary" type="submit" disabled={!canSubmit}>
-            {isSubmitting ? "Asking..." : "Ask with evidence"}
+            {isSubmitting ? "Asking..." : "Ask"}
           </button>
           <button className="button" type="button" disabled={!canSubmit} onClick={onSearchEvidence}>
             Search evidence

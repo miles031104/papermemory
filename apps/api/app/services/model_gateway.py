@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import base64
 import mimetypes
 from pathlib import Path
+import re
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -13,6 +14,8 @@ from app.core.config import Settings
 ChatCompletionMessage = dict[str, Any]
 MessageContent = str | list[dict[str, Any]]
 SUPPORTED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
+LEADING_THINK_BLOCK_PATTERN = re.compile(r"\A\s*<think\b[^>]*>.*?</think>\s*", flags=re.IGNORECASE | re.DOTALL)
+LEADING_OPEN_THINK_PATTERN = re.compile(r"\A\s*<think\b[^>]*>", flags=re.IGNORECASE | re.DOTALL)
 
 
 class GenerationRequest(BaseModel):
@@ -161,7 +164,7 @@ class ModelGateway:
             raise ModelGatewayError("response did not include choices[0].message.content") from exc
 
         if isinstance(content, str):
-            return content
+            return self._strip_reasoning_traces(content)
         if isinstance(content, list):
             parts = [
                 str(part.get("text"))
@@ -169,8 +172,27 @@ class ModelGateway:
                 if isinstance(part, dict) and part.get("type") in {"text", "output_text"} and part.get("text")
             ]
             if parts:
-                return "\n".join(parts)
+                return self._strip_reasoning_traces("\n".join(parts))
         raise ModelGatewayError("response content was empty or unsupported")
+
+    @staticmethod
+    def _strip_reasoning_traces(text: str) -> str:
+        remaining = text
+        stripped_reasoning = False
+
+        while match := LEADING_THINK_BLOCK_PATTERN.match(remaining):
+            remaining = remaining[match.end() :]
+            stripped_reasoning = True
+
+        if LEADING_OPEN_THINK_PATTERN.match(remaining):
+            raise ModelGatewayError("provider returned malformed hidden reasoning without a user-visible answer")
+
+        visible_text = remaining.strip()
+        if stripped_reasoning and not visible_text:
+            raise ModelGatewayError("provider returned only hidden reasoning without a user-visible answer")
+        if not visible_text:
+            raise ModelGatewayError("response content was empty or unsupported")
+        return visible_text
 
     @staticmethod
     def _safe_provider_error(response: httpx.Response) -> str:

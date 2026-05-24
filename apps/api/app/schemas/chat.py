@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.schemas.retrieval import PageEvidence
@@ -22,9 +24,19 @@ class ChatRequest(BaseModel):
     max_evidence_images: int | None = Field(default=None, ge=0, le=10)
 
 
+class ChatStats(BaseModel):
+    retrieval_attempted: bool
+    paper_scope_count: int
+    evidence_count: int
+    included_image_count: int
+
+
 class ChatResponse(BaseModel):
+    status: Literal["success", "partial", "error"]
     answer: str
     evidence: list[PageEvidence]
     model: str
     prompt_preview: str
     note: str | None = None
+    stats: ChatStats
+    limits: list[str] = Field(default_factory=list)

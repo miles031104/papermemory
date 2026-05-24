@@ -78,11 +78,21 @@ def _client() -> TestClient:
 
 
 def test_retrieval_response_hides_local_image_path() -> None:
-    response = _client().post("/retrieval/search", json={"query": "what is the method?"})
+    response = _client().post(
+        "/retrieval/search",
+        json={"query": "what is the method?", "paper_ids": ["paper-1"]},
+    )
 
     assert response.status_code == 200
     body = response.json()
     evidence = body["evidence"][0]
+    assert body["status"] == "success"
+    assert body["stats"] == {
+        "retrieval_attempted": True,
+        "paper_scope_count": 1,
+        "evidence_count": 1,
+    }
+    assert body["limits"] == []
     assert "image_path" not in evidence
     assert evidence["image_url"] == "/papers/paper-1/pages/1/image"
     assert evidence["caption"] == "Figure copied from [redacted local path]"
@@ -98,11 +108,19 @@ def test_retrieval_response_hides_local_image_path() -> None:
 
 
 def test_chat_response_hides_local_image_path() -> None:
-    response = _client().post("/chat", json={"question": "what is the method?"})
+    response = _client().post("/chat", json={"question": "what is the method?", "paper_ids": ["paper-1"]})
 
     assert response.status_code == 200
     body = response.json()
     evidence = body["evidence"][0]
+    assert body["status"] == "success"
+    assert body["stats"] == {
+        "retrieval_attempted": True,
+        "paper_scope_count": 1,
+        "evidence_count": 1,
+        "included_image_count": 0,
+    }
+    assert body["limits"] == ["Text-only evidence context; no page images were included."]
     assert "image_path" not in evidence
     assert evidence["image_url"] == "/papers/paper-1/pages/1/image"
     assert evidence["caption"] == "Figure copied from [redacted local path]"

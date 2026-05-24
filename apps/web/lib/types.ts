@@ -152,11 +152,22 @@ export interface ApiPageEvidence {
   metadata?: Record<string, string> | null;
 }
 
+export type ApiResponseStatus = "success" | "partial" | "error";
+
+export interface ApiRetrievalStats {
+  retrieval_attempted: boolean;
+  paper_scope_count: number;
+  evidence_count: number;
+}
+
 export interface ApiRetrievalResponse {
+  status: ApiResponseStatus;
   query: string;
   evidence: ApiPageEvidence[];
   retrieval_model: string;
   note: string | null;
+  stats: ApiRetrievalStats;
+  limits: string[];
 }
 
 export interface ApiChatRequest {
@@ -177,11 +188,16 @@ export interface ApiChatRequest {
 }
 
 export interface ApiChatResponse {
+  status: ApiResponseStatus;
   answer: string;
   evidence: ApiPageEvidence[];
   model: string;
   prompt_preview: string;
   note: string | null;
+  stats: ApiRetrievalStats & {
+    included_image_count: number;
+  };
+  limits: string[];
 }
 
 export interface ApiWorkspaceCitation {

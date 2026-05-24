@@ -88,12 +88,13 @@ Request:
 }
 ```
 
-`paper_ids` has explicit scope semantics: omit it or send `null` for an unfiltered local collection search, and send `[]` for an intentionally empty scope. An empty scope returns no evidence and must not fall back to the full collection.
+`paper_ids` has explicit scope semantics: provide a non-empty list to search only those papers. Omitted, `null`, or `[]` means no paper scope is selected; retrieval is skipped, evidence is empty, and the API must not fall back to an unfiltered local collection search.
 
 Response:
 
 ```json
 {
+  "status": "success",
   "query": "What method does the paper propose?",
   "evidence": [
     {
@@ -109,7 +110,31 @@ Response:
     }
   ],
   "retrieval_model": "openbmb/VisRAG-Ret",
-  "note": null
+  "note": null,
+  "stats": {
+    "retrieval_attempted": true,
+    "paper_scope_count": 1,
+    "evidence_count": 1
+  },
+  "limits": []
+}
+```
+
+No-scope response:
+
+```json
+{
+  "status": "partial",
+  "query": "What method does the paper propose?",
+  "evidence": [],
+  "retrieval_model": "openbmb/VisRAG-Ret",
+  "note": "No paper scope selected; returning no evidence.",
+  "stats": {
+    "retrieval_attempted": false,
+    "paper_scope_count": 0,
+    "evidence_count": 0
+  },
+  "limits": ["No paper scope selected; retrieval skipped."]
 }
 ```
 
@@ -161,10 +186,13 @@ Request:
 }
 ```
 
+`paper_ids` follows the same scope boundary as retrieval. Omitted, `null`, or `[]` enters conversation mode with no retrieved paper evidence instead of searching the full local collection. A non-empty list attempts scoped retrieval before generation.
+
 Response:
 
 ```json
 {
+  "status": "success",
   "answer": "The paper reports stronger results than the listed baselines on...",
   "evidence": [
     {
@@ -177,7 +205,34 @@ Response:
   ],
   "model": "gpt-4o",
   "prompt_preview": "Use an EVisRAG-style evidence-first workflow...",
-  "note": null
+  "note": null,
+  "stats": {
+    "retrieval_attempted": true,
+    "paper_scope_count": 1,
+    "evidence_count": 1,
+    "included_image_count": 0
+  },
+  "limits": ["Text-only evidence context; no page images were included."]
+}
+```
+
+Conversation-mode response:
+
+```json
+{
+  "status": "success",
+  "answer": "General research conversation answer...",
+  "evidence": [],
+  "model": "gpt-4o",
+  "prompt_preview": "Use PaperMemory conversation mode for this turn...",
+  "note": "Generation request used conversation mode without retrieved paper evidence.",
+  "stats": {
+    "retrieval_attempted": false,
+    "paper_scope_count": 0,
+    "evidence_count": 0,
+    "included_image_count": 0
+  },
+  "limits": ["No retrieved paper evidence is available; this response is not paper-grounded."]
 }
 ```
 

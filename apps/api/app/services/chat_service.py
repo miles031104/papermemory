@@ -1,10 +1,16 @@
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.retrieval import PageEvidence
+from app.services.context_builder import PAPERMEMORY_SYSTEM_PROMPT
+from app.services.context_builder import build_evisrag_prompt as build_context_prompt
+from app.services.context_builder import select_recent_conversation_messages
 from app.services.model_gateway import ModelGateway
 from app.services.page_image_resolver import PageImageResolver
 from app.services.vector_store import VectorStore
 from app.services.visrag_service import VisRAGService
 
+CONVERSATION_MODE_LIMIT = "No retrieved paper evidence is available; this response is not paper-grounded."
+NO_SCOPED_EVIDENCE_LIMIT = "Scoped retrieval returned no evidence; no paper citations are available."
+TEXT_ONLY_EVIDENCE_LIMIT = "Text-only evidence context; no page images were included."
 
 class ChatService:
     """Coordinates retrieval and answer generation with visual page evidence."""
@@ -22,27 +28,28 @@ class ChatService:
         self.page_image_resolver = page_image_resolver
 
     async def answer(self, request: ChatRequest) -> ChatResponse:
-        if request.paper_ids == []:
+        paper_scope_count = len(request.paper_ids or [])
+        if not request.paper_ids:
             evidence: list[PageEvidence] = []
-            prompt = self.build_evisrag_prompt(question=request.question, evidence=evidence)
-            return ChatResponse(
-                answer=(
-                    "No paper database scope is selected, so PaperMemory did not call the external "
-                    "model provider. Upload and index papers in the active database, then ask again."
-                ),
+            retrieval_attempted = False
+            prompt = self.build_evisrag_prompt(
+                question=request.question,
                 evidence=evidence,
-                model=request.model or self.model_gateway.model,
-                prompt_preview=prompt,
-                note="No paper scope selected; BYOK generation was skipped.",
+                retrieval_attempted=retrieval_attempted,
             )
         else:
+            retrieval_attempted = True
             query_embedding = await self.visrag.embed_query(request.question)
             evidence = await self.vector_store.search_pages(
                 embedding=query_embedding.vector,
                 top_k=request.top_k,
                 paper_ids=request.paper_ids,
             )
-        prompt = self.build_evisrag_prompt(question=request.question, evidence=evidence)
+            prompt = self.build_evisrag_prompt(
+                question=request.question,
+                evidence=evidence,
+                retrieval_attempted=retrieval_attempted,
+            )
 
         user_content = self.model_gateway.build_user_content(
             text=prompt,
@@ -50,15 +57,13 @@ class ChatService:
             enable_image_context=request.enable_image_context,
             max_evidence_images=request.max_evidence_images,
         )
+        selected_messages = select_recent_conversation_messages(request.messages)
         messages = [
             {
                 "role": "system",
-                "content": (
-                    "You are PaperMemory, a local-first research assistant. Answer only from "
-                    "provided evidence when possible and cite page-level visual evidence."
-                ),
+                "content": PAPERMEMORY_SYSTEM_PROMPT,
             },
-            *[message.model_dump() for message in request.messages],
+            *[message.model_dump() for message in selected_messages],
             {"role": "user", "content": user_content.content},
         ]
         generation = await self.model_gateway.generate(
@@ -69,47 +74,79 @@ class ChatService:
             temperature=request.temperature,
         )
 
+        included_image_count = user_content.included_image_count
         return ChatResponse(
+            status=self._response_status(
+                evidence_count=len(evidence),
+                retrieval_attempted=retrieval_attempted,
+            ),
             answer=generation.text,
             evidence=evidence,
             model=generation.model,
             prompt_preview=prompt,
-            note=self._build_generation_note(user_content.included_image_count),
+            note=self._build_generation_note(
+                included_image_count=included_image_count,
+                evidence_count=len(evidence),
+                retrieval_attempted=retrieval_attempted,
+            ),
+            stats={
+                "retrieval_attempted": retrieval_attempted,
+                "paper_scope_count": paper_scope_count,
+                "evidence_count": len(evidence),
+                "included_image_count": included_image_count,
+            },
+            limits=self._response_limits(
+                evidence_count=len(evidence),
+                retrieval_attempted=retrieval_attempted,
+                included_image_count=included_image_count,
+            ),
         )
 
-    def build_evisrag_prompt(self, question: str, evidence: list[PageEvidence]) -> str:
-        evidence_block = "\n".join(
-            (
-                f"- paper_id={item.paper_id}, page={item.page_number}, "
-                f"score={item.score:.4f}, image_ref={self._evidence_image_reference(item)}, "
-                f"caption={item.caption or 'none'}"
-            )
-            for item in evidence
-        )
-        if not evidence_block:
-            evidence_block = "- No retrieved page evidence yet."
-
-        return (
-            "Use an EVisRAG-style evidence-first workflow:\n"
-            "1. Inspect the retrieved page images and metadata before answering.\n"
-            "2. Ground claims in page-level evidence, including figures, tables, equations, and captions.\n"
-            "3. Say when evidence is missing or insufficient.\n\n"
-            f"Question:\n{question}\n\n"
-            f"Retrieved visual evidence:\n{evidence_block}"
+    def build_evisrag_prompt(
+        self,
+        question: str,
+        evidence: list[PageEvidence],
+        retrieval_attempted: bool = False,
+    ) -> str:
+        return build_context_prompt(
+            question=question,
+            evidence=evidence,
+            retrieval_attempted=retrieval_attempted,
         )
 
     @staticmethod
-    def _build_generation_note(included_image_count: int) -> str:
+    def _response_status(evidence_count: int, retrieval_attempted: bool) -> str:
+        if retrieval_attempted and evidence_count == 0:
+            return "partial"
+        return "success"
+
+    @staticmethod
+    def _response_limits(
+        evidence_count: int,
+        retrieval_attempted: bool,
+        included_image_count: int,
+    ) -> list[str]:
+        if evidence_count == 0:
+            if retrieval_attempted:
+                return [NO_SCOPED_EVIDENCE_LIMIT]
+            return [CONVERSATION_MODE_LIMIT]
+        if included_image_count == 0:
+            return [TEXT_ONLY_EVIDENCE_LIMIT]
+        return []
+
+    @staticmethod
+    def _build_generation_note(
+        included_image_count: int,
+        evidence_count: int,
+        retrieval_attempted: bool,
+    ) -> str:
+        if evidence_count == 0:
+            if retrieval_attempted:
+                return "Generation request used scoped paper retrieval, but no evidence was returned."
+            return "Generation request used conversation mode without retrieved paper evidence."
         if included_image_count > 0:
             return f"Generation request included {included_image_count} retrieved page image(s)."
         return "Generation request used text-only evidence context."
-
-    @staticmethod
-    def _evidence_image_reference(item: PageEvidence) -> str:
-        image_url = getattr(item, "image_url", None)
-        if image_url:
-            return str(image_url)
-        return f"paper_id={item.paper_id}, page={item.page_number}"
 
     def _resolve_authorized_image_paths(self, evidence: list[PageEvidence]) -> list[str]:
         if self.page_image_resolver is None:

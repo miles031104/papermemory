@@ -35,6 +35,13 @@ class RecordingModelGateway(ModelGateway):
         api_key: str | None = None,
         temperature: float = 0.2,
     ) -> GenerationResponse:
+        content = messages[-1]["content"]
+        user_text = content[0]["text"] if isinstance(content, list) else content
+        answer = (
+            "Phase 1C fake gateway conversation answer without paper grounding."
+            if "conversation mode" in user_text
+            else "Phase 1C fake gateway answer grounded in scoped page evidence."
+        )
         self.calls.append(
             {
                 "messages": messages,
@@ -45,7 +52,7 @@ class RecordingModelGateway(ModelGateway):
             }
         )
         return GenerationResponse(
-            text="Phase 1C fake gateway answer grounded in scoped page evidence.",
+            text=answer,
             model="phase1c-fake-response-model",
         )
 
@@ -203,8 +210,16 @@ def test_uploaded_library_scope_can_chat_through_fake_byok_gateway(tmp_path: Pat
             body_text = json.dumps(body)
 
             assert body["answer"] == "Phase 1C fake gateway answer grounded in scoped page evidence."
+            assert body["status"] == "success"
             assert body["model"] == "phase1c-fake-response-model"
             assert body["note"] == "Generation request included 1 retrieved page image(s)."
+            assert body["stats"] == {
+                "retrieval_attempted": True,
+                "paper_scope_count": 1,
+                "evidence_count": 1,
+                "included_image_count": 1,
+            }
+            assert body["limits"] == []
             assert {item["paper_id"] for item in body["evidence"]} == {paper_a["paper_id"]}
             assert paper_b["paper_id"] not in body_text
             assert "rendered_pages" not in body_text
@@ -235,7 +250,7 @@ def test_uploaded_library_scope_can_chat_through_fake_byok_gateway(tmp_path: Pat
         asyncio.run(_close_qdrant_client(vector_store))
 
 
-def test_chat_empty_paper_scope_skips_fake_gateway() -> None:
+def test_chat_empty_paper_scope_uses_conversation_mode_without_retrieval() -> None:
     settings = Settings()
     gateway = RecordingModelGateway(settings)
     api = create_app()
@@ -256,8 +271,20 @@ def test_chat_empty_paper_scope_skips_fake_gateway() -> None:
         )
 
     assert response.status_code == 200
-    assert response.json()["evidence"] == []
-    assert response.json()["model"] == "phase1c-request-model"
-    assert response.json()["note"] == "No paper scope selected; BYOK generation was skipped."
-    assert "did not call the external model provider" in response.json()["answer"]
-    assert gateway.calls == []
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["evidence"] == []
+    assert body["model"] == "phase1c-fake-response-model"
+    assert body["note"] == "Generation request used conversation mode without retrieved paper evidence."
+    assert body["stats"] == {
+        "retrieval_attempted": False,
+        "paper_scope_count": 0,
+        "evidence_count": 0,
+        "included_image_count": 0,
+    }
+    assert body["limits"] == [
+        "No retrieved paper evidence is available; this response is not paper-grounded."
+    ]
+    assert body["answer"] == "Phase 1C fake gateway conversation answer without paper grounding."
+    assert "conversation mode" in body["prompt_preview"]
+    assert len(gateway.calls) == 1

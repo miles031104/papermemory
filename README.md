@@ -22,7 +22,7 @@ PaperMemory currently focuses on the local MVP path:
   opt-in local backend.
 - Search evidence inside the active research database/library.
 - Keep multiple local paper databases, paper groups, and conversations.
-- Ask evidence-grounded questions over the active database.
+- Ask general research questions, or evidence-grounded questions over the active database.
 - Call generation models through bring-your-own-key OpenAI-compatible APIs.
 - Optionally attach retrieved page images to multimodal model requests.
 - Show page-level evidence and citations next to the answer.
@@ -205,8 +205,8 @@ npm run dev
 6. Return to Workspace.
 7. Upload a PDF into the active database.
 8. Wait for indexing to finish.
-9. Ask a question or search evidence.
-10. Inspect the answer, cited pages, and retrieved evidence.
+9. Ask a general research question, ask over the active papers, or search evidence.
+10. Inspect the answer, cited pages, and retrieved evidence when paper context is used.
 
 ## BYOK Model Providers
 
@@ -238,6 +238,18 @@ on text snippets plus the evidence prompt.
 Anthropic-native APIs are intentionally not listed as supported yet because they
 use a different request shape. They can be added later through a separate gateway
 adapter instead of pretending they are Chat Completions-compatible.
+
+Some reasoning-oriented providers may place hidden traces in the visible content
+field. PaperMemory redacts leading provider reasoning blocks before showing an
+answer, preserves literal `<think>` text inside normal answers, and treats
+think-only responses as provider errors instead of displaying a blank answer.
+
+Retrieval is optional for chat. When the active database has no ready papers,
+PaperMemory can still use your BYOK provider for general research conversation.
+It simply marks the turn as not grounded in retrieved paper evidence. This leaves
+room for later local memory layers such as paper notes, LLM Wiki pages, and a
+knowledge graph to make conversation smarter without making PDF retrieval a hard
+requirement for every message.
 
 ## Real VisRAG-Ret Mode
 
@@ -347,6 +359,7 @@ Later:
 
 ## Documentation
 
+- [Agent Contract](AGENT.md)
 - [Implementation Path](docs/IMPLEMENTATION_PATH.md)
 - [Phase Goals](docs/PHASE_GOALS.md)
 - [Architecture](docs/ARCHITECTURE.md)

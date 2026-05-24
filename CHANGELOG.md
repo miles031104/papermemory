@@ -13,11 +13,15 @@
 - Added a Windows start helper that explains how to launch Qdrant, the FastAPI backend, and the Next.js web app.
 - Added a phase goals document that keeps the roadmap focused on the core PaperMemory MVP and paper manager before LLM Wiki expansion.
 - Added shared BYOK provider presets and documentation for mainstream OpenAI-compatible providers, including Gemini, DeepSeek, Kimi/Moonshot, MiniMax, OpenRouter, MiMo through OpenRouter, Together AI, DashScope/Qwen, Mistral, Groq, xAI, and Custom endpoints.
+- Added `AGENT.md` to define PaperMemory's evidence-first assistant contract, answer format, and hidden-reasoning policy.
 
 ### Improved
 
 - Split the web UI into a focused research workspace and a separate settings view for model, provider, HF, and multimodal setup.
 - Reworked model settings so provider company selection uses the shared preset list while keeping base URL and model editable.
+- Tightened chat prompting so answers use a stable Answer/Evidence/Limits shape instead of narrating retrieval steps.
+- Expanded the agent contract with session/event boundaries, process visibility rules, failure policy, canonical citation schema, provider quirks, and evaluation fixtures.
+- Made retrieval optional for chat so users can have general BYOK research conversations when no ready papers are scoped, while keeping paper-grounded citations tied to retrieved evidence.
 - Documented the difference between Docker Qdrant server mode and embedded local Qdrant storage.
 - Updated local setup guidance so users can open the web app through either `localhost:3000` or `127.0.0.1:3000`.
 - Expanded default CORS origins to avoid false offline states when users open the app through the loopback address.
@@ -26,6 +30,7 @@
 
 - Fixed the web app's initial API URL so Phase 1D isolated-port smokes follow `NEXT_PUBLIC_API_BASE_URL` while defaulting to `http://localhost:8000`.
 - Fixed misleading README guidance for Qdrant local mode by showing persistent `.env` configuration instead of invalid PowerShell assignments.
+- Stripped only leading provider reasoning traces such as `<think>...</think>` from final model text, preserved literal tags inside normal answers, and rejected think-only responses instead of returning blank answers.
 
 ### Developer Notes
 

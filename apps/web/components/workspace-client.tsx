@@ -590,14 +590,6 @@ export function WorkspaceClient() {
       return;
     }
 
-    if (readyPaperIds.length === 0) {
-      const message = `No ready papers in ${activeLibrary?.name ?? "the active database"}. Upload and index a PDF before asking questions.`;
-      setEvidence([]);
-      setEvidenceNote(message);
-      setChatError(message);
-      return;
-    }
-
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -621,12 +613,27 @@ export function WorkspaceClient() {
     setChatError(null);
     setIsChatSubmitting(true);
 
+    let chatPaperIds = readyPaperIds;
+    let fallbackEvidenceNote: string | null = null;
+
     try {
-      await searchEvidence(trimmedQuestion);
+      if (readyPaperIds.length > 0) {
+        try {
+          await searchEvidence(trimmedQuestion);
+        } catch (error) {
+          chatPaperIds = [];
+          fallbackEvidenceNote = `Conversation mode: retrieval failed for the active paper scope, so this answer is not paper-grounded. ${getErrorMessage(error)}`;
+          setEvidence([]);
+          setEvidenceNote(fallbackEvidenceNote);
+        }
+      } else {
+        setEvidence([]);
+        setEvidenceNote("Conversation mode: no ready papers are scoped for retrieval in this database.");
+      }
 
       const response: ApiChatResponse = await paperMemoryApi.createChat({
         question: trimmedQuestion,
-        paper_ids: readyPaperIds,
+        paper_ids: chatPaperIds,
         top_k: settings.retrievalTopK,
         messages: priorMessages,
         provider: settings.provider,
@@ -639,7 +646,7 @@ export function WorkspaceClient() {
       }, installSettings.apiBaseUrl);
 
       setEvidence(response.evidence);
-      setEvidenceNote(response.note);
+      setEvidenceNote(fallbackEvidenceNote ?? response.note);
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
@@ -657,7 +664,7 @@ export function WorkspaceClient() {
     } catch (error) {
       setChatError(getErrorMessage(error));
       setEvidence([]);
-      setEvidenceNote("Chat failed before evidence could be confirmed for this conversation.");
+      setEvidenceNote("Chat failed before PaperMemory could return an answer for this conversation.");
       setApiStatus({
         connection: "offline",
         label: "Chat API error",

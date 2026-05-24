@@ -1,7 +1,9 @@
 import json
 
+import pytest
+
 from app.core.config import Settings
-from app.services.model_gateway import ModelGateway
+from app.services.model_gateway import ModelGateway, ModelGatewayError
 
 
 def test_build_user_content_returns_text_only_when_image_context_disabled(tmp_path) -> None:
@@ -65,3 +67,104 @@ def test_build_user_content_skips_oversized_images(tmp_path) -> None:
 
     assert built.included_image_count == 0
     assert built.content == "Use this evidence."
+
+
+def test_extract_text_strips_provider_reasoning_traces() -> None:
+    gateway = ModelGateway(Settings())
+
+    text = gateway._extract_text(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            "<think>I should inspect pages and plan the answer.</think>\n"
+                            "**Answer**\nPan frames LLMs and KGs as complementary."
+                        )
+                    }
+                }
+            ]
+        }
+    )
+
+    assert text == "**Answer**\nPan frames LLMs and KGs as complementary."
+    assert "<think>" not in text
+    assert "inspect pages" not in text
+
+
+def test_extract_text_strips_multiple_leading_reasoning_traces() -> None:
+    gateway = ModelGateway(Settings())
+
+    text = gateway._extract_text(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            "<think>Plan evidence.</think>\n"
+                            "<think>Check citation shape.</think>\n"
+                            "**Answer**\nUse `paper_id p.2`."
+                        )
+                    }
+                }
+            ]
+        }
+    )
+
+    assert text == "**Answer**\nUse `paper_id p.2`."
+
+
+def test_extract_text_keeps_literal_think_tags_inside_answer() -> None:
+    gateway = ModelGateway(Settings())
+
+    text = gateway._extract_text(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "The paper discusses <think> tags as literal markup, not reasoning."
+                    }
+                }
+            ]
+        }
+    )
+
+    assert text == "The paper discusses <think> tags as literal markup, not reasoning."
+
+
+def test_extract_text_rejects_closed_think_only_response() -> None:
+    gateway = ModelGateway(Settings())
+
+    with pytest.raises(ModelGatewayError) as exc_info:
+        gateway._extract_text(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "  <think>I should inspect pages and plan the answer.</think>\n"
+                        }
+                    }
+                ]
+            }
+        )
+
+    assert "only hidden reasoning" in exc_info.value.detail
+
+
+def test_extract_text_rejects_unclosed_leading_think_response() -> None:
+    gateway = ModelGateway(Settings())
+
+    with pytest.raises(ModelGatewayError) as exc_info:
+        gateway._extract_text(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "<think>I should inspect pages and plan the answer."
+                        }
+                    }
+                ]
+            }
+        )
+
+    assert "malformed hidden reasoning" in exc_info.value.detail

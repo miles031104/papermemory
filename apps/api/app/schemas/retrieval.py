@@ -1,5 +1,6 @@
 import re
 from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -69,8 +70,17 @@ class PageEvidence(BaseModel):
         return self
 
 
+class RetrievalStats(BaseModel):
+    retrieval_attempted: bool
+    paper_scope_count: int
+    evidence_count: int
+
+
 class RetrievalResponse(BaseModel):
+    status: Literal["success", "partial", "error"]
     query: str
     evidence: list[PageEvidence]
     retrieval_model: str
     note: str | None = None
+    stats: RetrievalStats
+    limits: list[str] = Field(default_factory=list)

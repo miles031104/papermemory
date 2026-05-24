@@ -7,6 +7,9 @@ from app.services.visrag_service import VisRAGService, VisRAGUnavailable
 
 router = APIRouter()
 
+NO_PAPER_SCOPE_LIMIT = "No paper scope selected; retrieval skipped."
+NO_SCOPED_EVIDENCE_LIMIT = "Scoped retrieval returned no evidence."
+
 
 def get_visrag_service(settings: Settings = Depends(get_settings)) -> VisRAGService:
     return VisRAGService(settings=settings)
@@ -22,12 +25,19 @@ async def search(
     visrag: VisRAGService = Depends(get_visrag_service),
     vector_store: VectorStore = Depends(get_vector_store),
 ) -> RetrievalResponse:
-    if request.paper_ids == []:
+    if not request.paper_ids:
         return RetrievalResponse(
+            status="partial",
             query=request.query,
             evidence=[],
             retrieval_model=visrag.model_name,
             note="No paper scope selected; returning no evidence.",
+            stats={
+                "retrieval_attempted": False,
+                "paper_scope_count": 0,
+                "evidence_count": 0,
+            },
+            limits=[NO_PAPER_SCOPE_LIMIT],
         )
 
     try:
@@ -40,8 +50,15 @@ async def search(
         paper_ids=request.paper_ids,
     )
     return RetrievalResponse(
+        status="success" if evidence else "partial",
         query=request.query,
         evidence=evidence,
         retrieval_model=visrag.model_name,
         note=None,
+        stats={
+            "retrieval_attempted": True,
+            "paper_scope_count": len(request.paper_ids),
+            "evidence_count": len(evidence),
+        },
+        limits=[] if evidence else [NO_SCOPED_EVIDENCE_LIMIT],
     )
