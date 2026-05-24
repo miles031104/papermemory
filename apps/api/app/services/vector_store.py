@@ -126,7 +126,26 @@ class VectorStore:
         embedding: list[float],
         top_k: int,
         paper_ids: list[str] | None = None,
+        score_threshold: float | None = None,
+        max_per_paper: int | None = None,
     ) -> list[PageEvidence]:
+        """Search for page evidence.
+
+        Args:
+            embedding: Query vector.
+            top_k: Maximum number of results to return (before per-paper cap).
+            paper_ids: Optional list of paper IDs to restrict the search.
+            score_threshold: Minimum similarity score (Qdrant native filter).
+                Use to drop clearly irrelevant pages before they enter the
+                prompt. Per Qdrant docs: scores below this value are excluded.
+                Note: cosine scores are not comparable across queries, so treat
+                this as a floor to block obvious noise rather than a precise
+                cutoff. Recommended starting value: 0.20 for stub/debug,
+                0.40-0.55 for real VisRAG-Ret embeddings.
+            max_per_paper: Maximum evidence pages per individual paper.
+                Prevents a single paper from dominating top_k results and
+                crowding out other papers in the active scope.
+        """
         if paper_ids == []:
             return []
         if top_k < 1:
@@ -140,12 +159,28 @@ class VectorStore:
                 embedding=embedding,
                 top_k=top_k,
                 query_filter=query_filter,
+                score_threshold=score_threshold,
             )
         except Exception as exc:
             raise VectorStoreUnavailable(f"failed to search pages: {exc}") from exc
 
         evidence = [self._hit_to_evidence(hit) for hit in hits]
-        return sorted(evidence, key=lambda item: item.score, reverse=True)
+        evidence = sorted(evidence, key=lambda item: item.score, reverse=True)
+
+        # Per-paper quota: prevent any single paper from monopolising top_k.
+        # Industry pattern: set max_per_paper = ceil(top_k / num_papers) or a
+        # fixed cap (e.g. 3) when multiple papers are in scope.
+        if max_per_paper is not None and max_per_paper > 0:
+            per_paper_count: dict[str, int] = {}
+            balanced: list[PageEvidence] = []
+            for item in evidence:
+                count = per_paper_count.get(item.paper_id, 0)
+                if count < max_per_paper:
+                    balanced.append(item)
+                    per_paper_count[item.paper_id] = count + 1
+            evidence = balanced
+
+        return evidence
 
     @staticmethod
     def point_id(paper_id: str, page_number: int) -> str:
@@ -202,9 +237,10 @@ class VectorStore:
         embedding: list[float],
         top_k: int,
         query_filter: Any | None,
+        score_threshold: float | None = None,
     ) -> list[Any]:
         if hasattr(self.client, "query_points"):
-            response = await self.client.query_points(
+            kwargs: dict[str, Any] = dict(
                 collection_name=self.collection,
                 query=embedding,
                 query_filter=query_filter,
@@ -212,18 +248,22 @@ class VectorStore:
                 with_payload=True,
                 with_vectors=False,
             )
+            if score_threshold is not None:
+                kwargs["score_threshold"] = score_threshold
+            response = await self.client.query_points(**kwargs)
             return list(getattr(response, "points", response))
 
-        return list(
-            await self.client.search(
-                collection_name=self.collection,
-                query_vector=embedding,
-                query_filter=query_filter,
-                limit=top_k,
-                with_payload=True,
-                with_vectors=False,
-            )
+        kwargs = dict(
+            collection_name=self.collection,
+            query_vector=embedding,
+            query_filter=query_filter,
+            limit=top_k,
+            with_payload=True,
+            with_vectors=False,
         )
+        if score_threshold is not None:
+            kwargs["score_threshold"] = score_threshold
+        return list(await self.client.search(**kwargs))
 
     def _build_qdrant_client(self) -> Any:
         try:
@@ -264,7 +304,7 @@ class VectorStore:
             else self.models.MatchAny(any=paper_ids)
         )
         return self.models.Filter(
-            must=[
+             must=[
                 self.models.FieldCondition(
                     key="paper_id",
                     match=match,

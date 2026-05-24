@@ -31,6 +31,8 @@ class FakeVectorStore:
         embedding: list[float],
         top_k: int,
         paper_ids: list[str] | None = None,
+        score_threshold: float | None = None,
+        max_per_paper: int | None = None,
     ) -> list[PageEvidence]:
         return [
             PageEvidence(

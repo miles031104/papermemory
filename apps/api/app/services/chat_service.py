@@ -1,7 +1,10 @@
+import math
+
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.retrieval import PageEvidence
 from app.services.context_builder import PAPERMEMORY_SYSTEM_PROMPT
 from app.services.context_builder import build_evisrag_prompt as build_context_prompt
+from app.services.context_builder import build_conversational_query
 from app.services.context_builder import select_recent_conversation_messages
 from app.services.model_gateway import ModelGateway
 from app.services.page_image_resolver import PageImageResolver
@@ -11,6 +14,7 @@ from app.services.visrag_service import VisRAGService
 CONVERSATION_MODE_LIMIT = "No retrieved paper evidence is available; this response is not paper-grounded."
 NO_SCOPED_EVIDENCE_LIMIT = "Scoped retrieval returned no evidence; no paper citations are available."
 TEXT_ONLY_EVIDENCE_LIMIT = "Text-only evidence context; no page images were included."
+
 
 class ChatService:
     """Coordinates retrieval and answer generation with visual page evidence."""
@@ -39,11 +43,31 @@ class ChatService:
             )
         else:
             retrieval_attempted = True
-            query_embedding = await self.visrag.embed_query(request.question)
+
+            # Multi-turn query enhancement: incorporate recent conversation
+            # context into the query vector so follow-up questions ("how does
+            # that compare to the baseline?") retrieve the right pages even
+            # when the current question is underspecified.
+            # Industry reference: conversational RAG query rewriting (MaFeRw 2024).
+            conversational_query = build_conversational_query(
+                question=request.question,
+                messages=request.messages,
+            )
+            query_embedding = await self.visrag.embed_query(conversational_query)
+
+            # Compute a sensible per-paper cap when not explicitly supplied.
+            # If 3 papers are in scope and top_k=6, cap each at 2 to ensure
+            # all papers have a fair chance at representation.
+            effective_max_per_paper = request.max_per_paper
+            if effective_max_per_paper is None and request.paper_ids and len(request.paper_ids) > 1:
+                effective_max_per_paper = math.ceil(request.top_k / len(request.paper_ids))
+
             evidence = await self.vector_store.search_pages(
                 embedding=query_embedding.vector,
                 top_k=request.top_k,
                 paper_ids=request.paper_ids,
+                score_threshold=request.score_threshold,
+                max_per_paper=effective_max_per_paper,
             )
             prompt = self.build_evisrag_prompt(
                 question=request.question,

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 import shutil
@@ -126,7 +127,10 @@ class IngestionService:
     async def render_pdf_pages(self, paper_id: str) -> list[Path]:
         pdf_path = self.paths.paper_pdf_path(paper_id)
         output_dir = self.paths.page_images_dir(paper_id)
-        return self.renderer.render_pages(pdf_path=pdf_path, output_dir=output_dir)
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, self.renderer.render_pages, pdf_path, output_dir
+        )
 
     async def _write_upload(self, file: UploadFile, destination: Path) -> None:
         total_bytes = 0

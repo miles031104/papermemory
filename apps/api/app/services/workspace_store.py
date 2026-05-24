@@ -32,6 +32,7 @@ class WorkspaceStore:
 
     def __init__(self, paths: StoragePaths) -> None:
         self.paths = paths
+        self._defaults_initialized: bool = False
         self.paths.ensure_all()
 
     @property
@@ -195,7 +196,9 @@ class WorkspaceStore:
         return updated
 
     def _load_workspace(self) -> WorkspaceResponse:
-        self._ensure_defaults()
+        if not self._defaults_initialized:
+            self._ensure_defaults()
+            self._defaults_initialized = True
         workspace = WorkspaceResponse(
             libraries=self._read_list(self.libraries_path, ResearchLibrary),
             conversations=self._read_list(self.conversations_path, ResearchConversation),

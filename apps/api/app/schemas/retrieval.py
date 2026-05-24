@@ -30,6 +30,8 @@ class RetrievalQuery(BaseModel):
     query: str = Field(min_length=1)
     paper_ids: list[str] | None = None
     top_k: int = Field(default=5, ge=1, le=25)
+    score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    max_per_paper: int | None = Field(default=None, ge=1, le=25)
 
 
 class PageEvidence(BaseModel):

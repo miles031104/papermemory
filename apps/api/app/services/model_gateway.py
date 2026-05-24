@@ -58,6 +58,11 @@ class ModelGateway:
         self.max_evidence_images = settings.byok_max_evidence_images
         self.max_image_bytes = settings.byok_max_image_bytes
 
+    # Warn when total base64 image payload exceeds this threshold (bytes).
+    # Most OpenAI-compatible providers enforce ~20 MB body limits; we warn at
+    # 15 MB to leave room for the text portion of the request.
+    _REQUEST_IMAGE_WARN_BYTES = 15 * 1024 * 1024  # 15 MB
+
     async def generate(
         self,
         messages: list[ChatCompletionMessage],
@@ -65,7 +70,20 @@ class ModelGateway:
         base_url: str | None = None,
         api_key: str | None = None,
         temperature: float = 0.2,
+        max_tokens: int | None = None,
     ) -> GenerationResponse:
+        """Call the configured BYOK provider and return the generated text.
+
+        Args:
+            messages: Full message list (system + history + user content).
+            model: Override the configured default model.
+            base_url: Override the configured provider base URL.
+            api_key: Override the configured API key.
+            temperature: Sampling temperature.
+            max_tokens: Maximum tokens to generate. Recommended: 2048-4096 for
+                paper QA. Without this, many providers apply their own default
+                cap which can silently truncate long evidence-grounded answers.
+        """
         target_model = model or self.model
         target_base_url = base_url or self.base_url
         target_api_key = api_key or self.api_key
@@ -79,11 +97,24 @@ class ModelGateway:
                 model=target_model,
             )
 
+        # Pre-flight: warn if total image payload is unusually large.
+        # This catches the "10 full-res page images" case before the provider
+        # returns a 413 or times out.
+        image_bytes = self.estimate_request_image_bytes(messages)
+        if image_bytes > self._REQUEST_IMAGE_WARN_BYTES:
+            raise ModelGatewayError(
+                f"Request image payload is {image_bytes // (1024 * 1024)} MB, which exceeds the "
+                f"{self._REQUEST_IMAGE_WARN_BYTES // (1024 * 1024)} MB safety limit. "
+                "Reduce max_evidence_images or switch to text-only mode.",
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
         url = f"{target_base_url.rstrip('/')}/chat/completions"
         payload = self.build_chat_completions_payload(
             messages=messages,
             model=target_model,
             temperature=temperature,
+            max_tokens=max_tokens,
         )
         headers = {
             "Authorization": f"Bearer {target_api_key}",
@@ -148,12 +179,50 @@ class ModelGateway:
         messages: list[ChatCompletionMessage],
         model: str,
         temperature: float,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
-        return {
+        """Build the OpenAI-compatible chat completions payload.
+
+        ``max_tokens`` is included when provided. Without it many providers
+        apply their own default cap (often 4096 tokens), which can silently
+        truncate long evidence-grounded answers.  A sensible default for
+        paper QA is 2048-4096 tokens; callers should set this based on the
+        provider's known limit.
+        """
+        payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
         }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        return payload
+
+    def estimate_request_image_bytes(self, messages: list[ChatCompletionMessage]) -> int:
+        """Estimate total base64 image payload bytes across all messages.
+
+        Providers typically enforce per-request body size limits (often 20-25 MB).
+        This estimate lets callers detect oversized requests before sending and
+        either drop images or warn the user.
+
+        Returns:
+            Approximate total bytes of base64-encoded image data in the payload.
+        """
+        total = 0
+        for message in messages:
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                if part.get("type") != "image_url":
+                    continue
+                url = (part.get("image_url") or {}).get("url", "")
+                if url.startswith("data:") and ";base64," in url:
+                    _, b64 = url.split(";base64,", 1)
+                    total += len(b64.encode("ascii"))
+        return total
 
     def _extract_text(self, data: dict[str, Any]) -> str:
         try:
@@ -181,7 +250,7 @@ class ModelGateway:
         stripped_reasoning = False
 
         while match := LEADING_THINK_BLOCK_PATTERN.match(remaining):
-            remaining = remaining[match.end() :]
+            remaining = remaining[match.end():]
             stripped_reasoning = True
 
         if LEADING_OPEN_THINK_PATTERN.match(remaining):

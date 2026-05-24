@@ -14,6 +14,13 @@ class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
     paper_ids: list[str] | None = None
     top_k: int = Field(default=5, ge=1, le=25)
+    # Minimum similarity score; pages below this are dropped before prompt
+    # construction. None = include all top_k results (no floor).
+    score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Max evidence pages allowed per paper in a multi-paper scope.
+    # Prevents one paper from monopolising all top_k slots.
+    # None = no per-paper cap.
+    max_per_paper: int | None = Field(default=None, ge=1, le=25)
     messages: list[ChatMessage] = Field(default_factory=list)
     provider: str = "openai-compatible"
     base_url: str | None = None

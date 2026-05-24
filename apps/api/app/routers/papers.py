@@ -18,6 +18,7 @@ def get_ingestion_service(settings: Settings = Depends(get_settings)) -> Ingesti
     indexing_service = IndexingService(
         visrag=VisRAGService(settings=settings),
         vector_store=VectorStore(settings=settings),
+        embed_concurrency=settings.visrag_batch_size,
     )
     return IngestionService(
         paths=StoragePaths(settings),

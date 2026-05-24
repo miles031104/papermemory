@@ -28,6 +28,8 @@ class RecordingVectorStore:
         embedding: list[float],
         top_k: int,
         paper_ids: list[str] | None = None,
+        score_threshold: float | None = None,
+        max_per_paper: int | None = None,
     ) -> list[PageEvidence]:
         self.search_calls += 1
         raise AssertionError("empty paper scope should not query the vector store")
@@ -58,6 +60,8 @@ class EmptyEvidenceVectorStore:
         embedding: list[float],
         top_k: int,
         paper_ids: list[str] | None = None,
+        score_threshold: float | None = None,
+        max_per_paper: int | None = None,
     ) -> list[PageEvidence]:
         self.search_calls += 1
         self.paper_ids = paper_ids

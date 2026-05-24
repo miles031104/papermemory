@@ -48,6 +48,8 @@ async def search(
         embedding=query_embedding.vector,
         top_k=request.top_k,
         paper_ids=request.paper_ids,
+        score_threshold=request.score_threshold,
+        max_per_paper=request.max_per_paper,
     )
     return RetrievalResponse(
         status="success" if evidence else "partial",

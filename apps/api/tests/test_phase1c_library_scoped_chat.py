@@ -70,6 +70,8 @@ class ExplodingVectorStore:
         embedding: list[float],
         top_k: int,
         paper_ids: list[str] | None = None,
+        score_threshold: float | None = None,
+        max_per_paper: int | None = None,
     ) -> list[PageEvidence]:
         raise AssertionError("empty paper scope should not search the vector store")
 
