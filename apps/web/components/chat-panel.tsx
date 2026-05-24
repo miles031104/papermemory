@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import type { ChatMessage } from "@/lib/types";
 
 interface ChatPanelProps {
@@ -28,6 +30,22 @@ export function ChatPanel({
   onSearchEvidence
 }: ChatPanelProps) {
   const canSubmit = question.trim().length > 0 && !isSubmitting;
+  const listRef = useRef<HTMLOListElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    const list = listRef.current;
+    if (list) {
+      list.scrollTop = list.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      if (canSubmit) onSubmit();
+    }
+  };
 
   return (
     <section className="panel chat-panel" aria-labelledby="chat-title">
@@ -38,27 +56,32 @@ export function ChatPanel({
           <p>{libraryDescription}</p>
         </div>
         <button className="button button--subtle" type="button" onClick={onReset}>
-          Clear chat
+          Clear
         </button>
       </div>
 
       <div className="panel__body">
-        <ol className="message-list" aria-label="Chat transcript">
+        <ol className="message-list" aria-label="Chat transcript" ref={listRef}>
           {messages.map((message) => (
             <li className={`message message--${message.role}`} key={message.id}>
-              <p className="message__author">
-                {message.role === "assistant" ? "PaperMemory" : "You"}
-              </p>
-              <p className="message__body">{message.content}</p>
-              {message.citations.length > 0 ? (
-                <div className="citation-chips" aria-label="Cited pages">
-                  {message.citations.map((citation) => (
-                    <span className="citation-chip" key={`${citation.paperId}-${citation.page}`}>
-                      {citation.label} p.{citation.page}
-                    </span>
-                  ))}
-                </div>
+              {message.role === "assistant" ? (
+                <span className="message__avatar" aria-hidden="true">PM</span>
               ) : null}
+              <div className="message__bubble">
+                <p className="message__body">{message.content}</p>
+                {message.citations.length > 0 ? (
+                  <div className="citation-chips" aria-label="Cited pages">
+                    {message.citations.map((citation) => (
+                      <span
+                        className="citation-chip"
+                        key={`${citation.paperId}-${citation.page}`}
+                      >
+                        {citation.label} p.{citation.page}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </li>
           ))}
         </ol>
@@ -78,20 +101,30 @@ export function ChatPanel({
           </p>
         ) : null}
         <div className="field">
-          <label htmlFor="question">Question</label>
+          <label htmlFor="question">
+            <span>Question</span>
+            <span className="shortcut-hint">⌘↵ to send</span>
+          </label>
           <textarea
             id="question"
             name="question"
+            rows={3}
             value={question}
             onChange={(event) => onQuestionChange(event.target.value)}
-            placeholder="Ask about the active papers, or start a general research conversation."
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about the active papers…"
           />
         </div>
         <div className="button-row">
           <button className="button button--primary" type="submit" disabled={!canSubmit}>
-            {isSubmitting ? "Asking..." : "Ask"}
+            {isSubmitting ? "Thinking…" : "Ask"}
           </button>
-          <button className="button" type="button" disabled={!canSubmit} onClick={onSearchEvidence}>
+          <button
+            className="button"
+            type="button"
+            disabled={!canSubmit}
+            onClick={onSearchEvidence}
+          >
             Search evidence
           </button>
         </div>
