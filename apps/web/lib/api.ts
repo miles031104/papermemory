@@ -125,6 +125,13 @@ export const paperMemoryApi = {
     });
   },
 
+  movePaperToGroup(groupId: string, paperId: string, baseUrl?: string) {
+    return requestJson<ApiPaperGroup>(`/workspace/paper-groups/${groupId}/papers/${paperId}`, {
+      method: "POST",
+      baseUrl
+    });
+  },
+
   uploadPaper(file: File, metadata?: { title?: string }, baseUrl?: string) {
     const formData = new FormData();
     formData.append("file", file);

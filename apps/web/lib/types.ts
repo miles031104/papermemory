@@ -55,6 +55,8 @@ export interface PaperGroup {
   updatedAt: string;
 }
 
+export type WorkspaceView = "home" | "chat" | "papers" | "settings";
+
 export interface EvidenceItem {
   id: string;
   paperId: string;
