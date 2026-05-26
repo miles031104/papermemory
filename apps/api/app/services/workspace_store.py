@@ -350,7 +350,7 @@ class WorkspaceStore:
                     ),
                     None,
                 )
-                target_group_id = default_group.id if default_group is not None else library_group_ids[library.id][0]
+                target_group_id = default_group.id if default_group is not None else None
 
             if target_group_id is None:
                 default_group = self._default_group_for_library(
