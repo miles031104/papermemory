@@ -44,6 +44,27 @@ State uncertainty, missing pages, or whether the answer relies on text-only evid
 """
 
 
+QUERY_REWRITE_SYSTEM_PROMPT = (
+    "You are a search query optimizer. "
+    "Rewrite the user's last question as a concise standalone retrieval query: "
+    "resolve pronouns and co-references, remove conversational preamble. "
+    "Output ONLY the rewritten query, nothing else. Keep it under 20 words."
+)
+
+
+def build_query_rewrite_prompt(question: str, messages: list[ChatMessage]) -> str:
+    """Build a prompt asking the LLM to produce a standalone retrieval query.
+
+    Includes up to ``QUERY_CONTEXT_TURNS`` prior turns so the model can resolve
+    references like "it", "that method", or "the proposed approach".
+    """
+    lines: list[str] = []
+    for msg in messages[-(QUERY_CONTEXT_TURNS * 2):]:
+        lines.append(f"{msg.role}: {msg.content.strip()}")
+    lines.append(f"user: {question}")
+    return "\n".join(lines)
+
+
 def build_conversational_query(
     question: str,
     messages: list[ChatMessage],
@@ -117,8 +138,8 @@ def select_recent_conversation_messages(
     if summary_msg is not None:
         return [summary_msg] + tail
 
-    # No summary available yet - fall back to tail only.
-    return tail
+    # No summary available yet - return the full limit without a summary slot.
+    return list(messages[-limit:])
 
 
 def compress_conversation_history(

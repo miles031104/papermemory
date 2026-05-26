@@ -29,6 +29,7 @@ class ChatRequest(BaseModel):
     temperature: float = Field(default=0.2, ge=0, le=2)
     enable_image_context: bool | None = None
     max_evidence_images: int | None = Field(default=None, ge=0, le=10)
+    enable_query_rewrite: bool = False
 
 
 class ChatStats(BaseModel):

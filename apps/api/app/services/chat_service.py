@@ -1,4 +1,5 @@
 import math
+import re
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -6,9 +7,11 @@ from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
 from app.schemas.retrieval import PageEvidence
 from app.services.context_builder import (
     PAPERMEMORY_SYSTEM_PROMPT,
+    QUERY_REWRITE_SYSTEM_PROMPT,
     RECENT_CONVERSATION_MESSAGE_LIMIT,
     build_conversational_query,
     build_evisrag_prompt as build_context_prompt,
+    build_query_rewrite_prompt,
     compress_conversation_history,
     select_recent_conversation_messages,
 )
@@ -40,14 +43,14 @@ class ChatService:
     async def answer(self, request: ChatRequest) -> ChatResponse:
         paper_scope_count = len(request.paper_ids or [])
         evidence, retrieval_attempted = await self._do_retrieval(request)
-        prompt = self.build_evisrag_prompt(
+
+        verified_prompt = self.build_evisrag_prompt(
             question=request.question,
             evidence=evidence,
             retrieval_attempted=retrieval_attempted,
         )
-
         user_content = self.model_gateway.build_user_content(
-            text=prompt,
+            text=verified_prompt,
             image_paths=self._resolve_authorized_image_paths(evidence),
             enable_image_context=request.enable_image_context,
             max_evidence_images=request.max_evidence_images,
@@ -66,16 +69,17 @@ class ChatService:
             temperature=request.temperature,
         )
 
+        answer_text, _ = self._verify_citations(generation.text, evidence)
         included_image_count = user_content.included_image_count
         return ChatResponse(
             status=self._response_status(
                 evidence_count=len(evidence),
                 retrieval_attempted=retrieval_attempted,
             ),
-            answer=generation.text,
+            answer=answer_text,
             evidence=evidence,
             model=generation.model,
-            prompt_preview=prompt,
+            prompt_preview=verified_prompt,
             note=self._build_generation_note(
                 included_image_count=included_image_count,
                 evidence_count=len(evidence),
@@ -107,8 +111,6 @@ class ChatService:
         evidence, retrieval_attempted = await self._do_retrieval(request)
 
         # ── Early evidence frame ──────────────────────────────────────────────
-        # Sent before the first LLM token so the UI can populate the evidence
-        # panel while the model is still generating.
         yield {
             "evidence_ready": evidence,
             "note": self._build_retrieval_note(evidence, retrieval_attempted),
@@ -149,10 +151,10 @@ class ChatService:
         except Exception:
             clean_answer = full_text
 
+        # ── Citation verification ─────────────────────────────────────────────
+        clean_answer, removed_citations = self._verify_citations(clean_answer, evidence)
+
         # ── Conversation summarization ────────────────────────────────────────
-        # When the history exceeds the context window, generate a [Summary]
-        # message that the frontend will prepend to stored messages so future
-        # turns don't lose earlier conclusions.
         summary_message = await self._maybe_summarize(request)
 
         included_image_count = user_content.included_image_count
@@ -169,6 +171,7 @@ class ChatService:
                 "paper_scope_count": paper_scope_count,
                 "evidence_count": len(evidence),
                 "included_image_count": included_image_count,
+                "removed_citations": removed_citations,
             },
             "summary_message": summary_message.model_dump() if summary_message else None,
         }
@@ -176,23 +179,31 @@ class ChatService:
     # ── Retrieval helpers ──────────────────────────────────────────────────────
 
     async def _do_retrieval(self, request: ChatRequest) -> tuple[list[PageEvidence], bool]:
-        """Run retrieval with automatic zero-result retry.
+        """Run retrieval with query rewriting and automatic zero-result retry.
 
         Returns ``(evidence, retrieval_attempted)``.
 
-        On the first pass the query is enriched with recent conversation context
-        (MaFeRw 2024 pattern). If that returns no results we retry with the bare
-        question and no score threshold — the fallback trades precision for
-        recall so the model at least has some grounding.
+        Query building order:
+        1. If ``enable_query_rewrite`` is set and there are prior messages, ask
+           the LLM to rewrite the question as a standalone retrieval query.
+        2. Otherwise fall back to the conversational concatenation heuristic.
+
+        On zero results a second pass runs with the bare question and no score
+        threshold to maximise recall for ambiguous follow-up questions.
         """
         if not request.paper_ids:
             return [], False
 
-        conversational_query = build_conversational_query(
-            question=request.question,
-            messages=request.messages,
-        )
-        query_embedding = await self.visrag.embed_query(conversational_query)
+        # Choose retrieval query strategy.
+        if request.enable_query_rewrite and len(request.messages) >= 2:
+            retrieval_query = await self._rewrite_query(request)
+        else:
+            retrieval_query = build_conversational_query(
+                question=request.question,
+                messages=request.messages,
+            )
+
+        query_embedding = await self.visrag.embed_query(retrieval_query)
 
         effective_max_per_paper = request.max_per_paper
         if effective_max_per_paper is None and len(request.paper_ids) > 1:
@@ -206,9 +217,8 @@ class ChatService:
             max_per_paper=effective_max_per_paper,
         )
 
-        # Zero-result retry: drop conversational context enrichment and the
-        # score threshold so the retriever has a fair chance on short or
-        # ambiguous follow-up questions.
+        # Zero-result retry: always use the bare question here to maximise
+        # recall — drop the rewritten/enriched query and the score threshold.
         if not evidence:
             bare_embedding = await self.visrag.embed_query(request.question)
             evidence = await self.vector_store.search_pages(
@@ -219,6 +229,76 @@ class ChatService:
 
         return evidence, True
 
+    async def _rewrite_query(self, request: ChatRequest) -> str:
+        """Ask the LLM to rewrite the question as a standalone retrieval query.
+
+        Resolves pronouns and co-references so the embedding captures the
+        actual topic rather than an underspecified follow-up fragment like
+        "what about the limitations?".
+
+        Falls back to the original question on any error so retrieval is
+        never blocked by a rewriting failure.
+        """
+        try:
+            prompt = build_query_rewrite_prompt(request.question, request.messages)
+            response = await self.model_gateway.generate(
+                messages=[
+                    {"role": "system", "content": QUERY_REWRITE_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                model=request.model,
+                base_url=request.base_url,
+                api_key=request.api_key,
+                temperature=0,
+            )
+            rewritten = response.text.strip()
+            return rewritten if rewritten else request.question
+        except Exception:
+            return request.question
+
+    # ── Citation verification ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _verify_citations(
+        answer: str,
+        evidence: list[PageEvidence],
+    ) -> tuple[str, list[str]]:
+        """Remove citations for pages absent from the retrieved evidence.
+
+        Only inspects citations whose ``paper_id`` appears in the evidence set,
+        so general references to papers outside the active scope are left
+        untouched.  Hallucinated page numbers for a known paper are stripped and
+        recorded so callers can surface them in stats.
+
+        Returns:
+            (verified_answer, list_of_removed_citation_strings)
+        """
+        if not evidence:
+            return answer, []
+
+        valid_pairs = {(e.paper_id, e.page_number) for e in evidence}
+        # Sort longest IDs first to prevent a shorter ID from being matched as a
+        # prefix of a longer one during regex alternation.
+        known_ids = sorted({e.paper_id for e in evidence}, key=len, reverse=True)
+        escaped = "|".join(re.escape(pid) for pid in known_ids)
+        if not escaped:
+            return answer, []
+
+        pattern = re.compile(rf'\b({escaped})\s+p\.(\d+)\b')
+        removed: list[str] = []
+
+        def check(m: re.Match) -> str:  # type: ignore[type-arg]
+            pid, page = m.group(1), int(m.group(2))
+            if (pid, page) in valid_pairs:
+                return m.group(0)
+            removed.append(f"{pid} p.{page}")
+            return ""
+
+        verified = pattern.sub(check, answer)
+        # Collapse consecutive spaces left by removed inline citations.
+        verified = re.sub(r" {2,}", " ", verified).strip()
+        return verified, removed
+
     # ── Summarization helpers ──────────────────────────────────────────────────
 
     @staticmethod
@@ -226,7 +306,6 @@ class ChatService:
         """True when history exceeds the context window and has no existing summary."""
         if len(messages) <= RECENT_CONVERSATION_MESSAGE_LIMIT:
             return False
-        # Don't re-summarize while a [Summary] message already anchors the history.
         return not (
             messages[0].role == "assistant"
             and messages[0].content.startswith("[Summary]")
@@ -236,14 +315,11 @@ class ChatService:
         """Generate a [Summary] message for older turns if the history is long.
 
         Called after the main generation so it adds no latency to the first
-        token. Returns None silently on any error so summarization failure
-        never surfaces to the user.
+        token.  Returns None silently on any error.
         """
         if not self._needs_summarization(request.messages):
             return None
         try:
-            # Summarize only the messages that would be dropped by
-            # select_recent_conversation_messages on the next turn.
             cutoff = -(RECENT_CONVERSATION_MESSAGE_LIMIT - 1)
             older = list(request.messages[:cutoff])
             _, summary_prompt = compress_conversation_history(older)

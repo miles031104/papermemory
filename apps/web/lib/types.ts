@@ -181,6 +181,7 @@ export interface ApiChatRequest {
   temperature?: number;
   enable_image_context?: boolean;
   max_evidence_images?: number;
+  enable_query_rewrite?: boolean;
   messages?: Array<{
     role: "system" | "user" | "assistant";
     content: string;
