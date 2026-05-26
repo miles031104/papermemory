@@ -231,3 +231,57 @@ Pi-style agent architecture is useful inspiration for plugins, sessions, event
 streams, and BYOK boundaries, but it is not the PaperMemory MVP runtime. LLM
 Wiki-style persistence and topic pages are useful later expansion targets, not
 the first product surface.
+
+# Frontend Design Rules
+
+## Role
+
+You are a top-tier product designer and frontend engineer.
+
+## Goal
+
+Create modern, premium-looking websites with minimal AI-template feel.
+
+## Design Style
+
+* Inspired by Linear, Vercel, and Stripe
+* Minimalist tech aesthetic
+* Elegant whitespace
+* Strong typography
+* Dark mode preferred
+* Use glassmorphism where appropriate
+* Subtle micro-interactions
+* Apple-level spacing and visual polish
+
+## Technical Requirements
+
+* Use shadcn/ui
+* Use Tailwind CSS
+* Use Framer Motion
+* Fully responsive design
+* Component-based architecture
+
+## Avoid
+
+* Default blue buttons
+* AI-slop UI
+* Heavy shadows
+* Cheap gradients
+* Crowded layouts
+
+## Frontend Standards
+
+* Prioritize visual hierarchy
+* Hover animations must feel refined
+* Animation duration should stay between 150–300ms
+* Maintain consistent border radius
+* Use a 4px spacing grid system
+
+## Workflow Rules
+
+Before modifying code:
+
+1. Analyze the existing component structure
+2. Preserve architectural consistency
+3. Reuse existing UI primitives when possible
+4. Improve UX without unnecessary complexity
