@@ -446,6 +446,53 @@ def test_workspace_repair_assigns_orphan_papers_to_new_default_group_without_pol
     assert body["libraries"][0]["group_ids"] == [group["id"] for group in groups]
 
 
+def test_workspace_repair_assigns_orphan_papers_to_existing_default_group(tmp_path: Path) -> None:
+    _write_ready_paper(tmp_path, "paper-orphan")
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True)
+    now = datetime.now(UTC).isoformat()
+    (workspace_dir / "libraries.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "library-custom",
+                    "name": "Custom",
+                    "description": "",
+                    "paper_ids": ["paper-orphan"],
+                    "group_ids": ["group-default"],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (workspace_dir / "conversations.json").write_text("[]", encoding="utf-8")
+    (workspace_dir / "paper_groups.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "group-default",
+                    "library_id": "library-custom",
+                    "name": "Ungrouped uploads",
+                    "description": "",
+                    "paper_ids": [],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    client = _client(tmp_path)
+    body = client.get("/workspace").json()
+
+    group = body["paper_groups"][0]
+    assert group["id"] == "group-default"
+    assert group["paper_ids"] == ["paper-orphan"]
+
+
 def test_workspace_repair_removes_duplicate_group_membership_within_library(tmp_path: Path) -> None:
     _write_ready_paper(tmp_path, "paper-shared")
     workspace_dir = tmp_path / "workspace"
