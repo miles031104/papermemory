@@ -51,6 +51,7 @@ qdrant_storage/
 
 # Logs and generated artifacts
 .codex-run/
+.superpowers/
 logs/
 *.log
 coverage/
