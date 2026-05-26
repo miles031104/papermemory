@@ -357,7 +357,7 @@ export function SetupWizard({ settings, onChange, onApplyModelSettings }: SetupW
                 type="password"
                 value={settings.providerApiKey}
                 onChange={(event) => update({ providerApiKey: event.target.value })}
-                placeholder="Kept in this setup session"
+                placeholder="Saved locally in this browser"
                 autoComplete="off"
               />
             </div>

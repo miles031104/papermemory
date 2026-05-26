@@ -31,7 +31,12 @@ class IndexingService:
         self.vector_store = vector_store
         self._semaphore = asyncio.Semaphore(embed_concurrency)
 
-    async def index_pages(self, paper_id: str, page_paths: Sequence[Path]) -> None:
+    async def index_pages(
+        self,
+        paper_id: str,
+        page_paths: Sequence[Path],
+        captions: Sequence[str | None] | None = None,
+    ) -> None:
         """Embed all pages concurrently then upsert results to the vector store."""
         if not page_paths:
             return
@@ -44,12 +49,14 @@ class IndexingService:
         results = await asyncio.gather(*tasks)
 
         # Upsert sequentially to respect Qdrant write ordering guarantees.
-        for page_number, page_path, embedding in results:
+        for i, (page_number, page_path, embedding) in enumerate(results):
+            caption = captions[i] if captions is not None and i < len(captions) else None
             await self.vector_store.upsert_page(
                 paper_id=paper_id,
                 page_number=page_number,
                 embedding=embedding.vector,
                 image_path=str(page_path),
+                caption=caption,
                 metadata={
                     "embedding_model": embedding.model,
                     "embedding_instruction": embedding.instruction,

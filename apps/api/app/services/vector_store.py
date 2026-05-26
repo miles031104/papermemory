@@ -95,6 +95,7 @@ class VectorStore:
         page_number: int,
         embedding: list[float],
         image_path: str,
+        caption: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None:
         self._validate_embedding(embedding)
@@ -104,6 +105,7 @@ class VectorStore:
             paper_id=paper_id,
             page_number=page_number,
             image_path=image_path,
+            caption=caption,
             metadata=metadata,
         )
         point = self.models.PointStruct(
@@ -317,6 +319,7 @@ class VectorStore:
         paper_id: str,
         page_number: int,
         image_path: str,
+        caption: str | None,
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -324,6 +327,8 @@ class VectorStore:
             "page_number": page_number,
             "image_path": image_path,
         }
+        if caption:
+            payload["caption"] = caption
         if metadata:
             payload.update({key: value for key, value in metadata.items() if value is not None})
         return payload

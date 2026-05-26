@@ -73,6 +73,8 @@ class IngestionService:
             self._write_metadata(failed_metadata)
             raise HTTPException(status_code=422, detail=f"Failed to render PDF pages: {exc}") from exc
 
+        page_texts = await self._extract_page_texts(paper_id=paper_id)
+
         indexing_metadata = metadata.model_copy(
             update={
                 "status": PaperStatus.indexing,
@@ -83,7 +85,11 @@ class IngestionService:
 
         try:
             if self.indexing_service is not None:
-                await self.indexing_service.index_pages(paper_id=paper_id, page_paths=rendered_pages)
+                await self.indexing_service.index_pages(
+                    paper_id=paper_id,
+                    page_paths=rendered_pages,
+                    captions=page_texts,
+                )
         except Exception as exc:
             failed_metadata = indexing_metadata.model_copy(update={"status": PaperStatus.failed})
             self._write_metadata(failed_metadata)
@@ -131,6 +137,17 @@ class IngestionService:
         return await loop.run_in_executor(
             None, self.renderer.render_pages, pdf_path, output_dir
         )
+
+    async def _extract_page_texts(self, paper_id: str) -> list[str | None]:
+        """Extract per-page text from the stored PDF; returns empty list on any error."""
+        if not hasattr(self.renderer, "extract_page_texts"):
+            return []
+        pdf_path = self.paths.paper_pdf_path(paper_id)
+        loop = asyncio.get_event_loop()
+        try:
+            return await loop.run_in_executor(None, self.renderer.extract_page_texts, pdf_path)
+        except Exception:
+            return []
 
     async def _write_upload(self, file: UploadFile, destination: Path) -> None:
         total_bytes = 0

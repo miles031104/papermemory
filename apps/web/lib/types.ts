@@ -214,6 +214,13 @@ export interface ApiWorkspaceMessage {
   citations: ApiWorkspaceCitation[];
 }
 
+export interface ApiChatSummaryMessage {
+  id?: string;
+  role: "user" | "assistant";
+  content: string;
+  citations?: ApiWorkspaceCitation[];
+}
+
 export interface ApiResearchLibrary {
   id: string;
   name: string;
@@ -255,5 +262,5 @@ export interface ApiChatStreamDone {
   evidence: ApiPageEvidence[];
   note: string | null;
   stats: Record<string, unknown>;
-  summary_message?: ApiWorkspaceMessage | null;
+  summary_message?: ApiChatSummaryMessage | null;
 }

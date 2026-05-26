@@ -70,8 +70,35 @@ const initialInstallSettings: InstallSettings = {
   providerApiKey: "",
 };
 
+const MODEL_SETTINGS_STORAGE_KEY = "papermemory.modelSettings.v1";
+const INSTALL_SETTINGS_STORAGE_KEY = "papermemory.installSettings.v1";
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown PaperMemory API error.";
+}
+
+function readStoredSettings<T extends object>(key: string, defaults: T): T {
+  if (typeof window === "undefined") {
+    return defaults;
+  }
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return defaults;
+    }
+    const parsed = JSON.parse(raw) as Partial<T>;
+    return { ...defaults, ...parsed };
+  } catch {
+    return defaults;
+  }
+}
+
+function writeStoredSettings<T extends object>(key: string, value: T) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Local storage can be unavailable in private or restricted browser contexts.
+  }
 }
 
 function mapApiPaper(paper: ApiPaperMetadata): PaperSummary {
@@ -195,8 +222,12 @@ export function WorkspaceClient() {
   const [paperGroups, setPaperGroups] = useState<PaperGroup[]>(mockPaperGroups);
   const [isWorkspacePersisted, setIsWorkspacePersisted] = useState(false);
   const [papers, setPapers] = useState<PaperSummary[]>(mockPapers);
-  const [settings, setSettings] = useState<ModelSettings>(mockModelSettings);
-  const [installSettings, setInstallSettings] = useState<InstallSettings>(initialInstallSettings);
+  const [settings, setSettings] = useState<ModelSettings>(() =>
+    readStoredSettings(MODEL_SETTINGS_STORAGE_KEY, mockModelSettings),
+  );
+  const [installSettings, setInstallSettings] = useState<InstallSettings>(() =>
+    readStoredSettings(INSTALL_SETTINGS_STORAGE_KEY, initialInstallSettings),
+  );
   const [uploadTitle, setUploadTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -484,6 +515,14 @@ export function WorkspaceClient() {
   useEffect(() => {
     void loadWorkspace();
   }, []);
+
+  useEffect(() => {
+    writeStoredSettings(MODEL_SETTINGS_STORAGE_KEY, settings);
+  }, [settings]);
+
+  useEffect(() => {
+    writeStoredSettings(INSTALL_SETTINGS_STORAGE_KEY, installSettings);
+  }, [installSettings]);
 
   const handleUpload = async () => {
     if (!selectedFile) {

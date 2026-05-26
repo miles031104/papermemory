@@ -113,7 +113,7 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
             type="password"
             value={settings.apiKey}
             onChange={(event) => updateSettings({ apiKey: event.target.value })}
-            placeholder="Kept only in this browser session"
+            placeholder="Leave blank to use the API server .env key"
             autoComplete="off"
           />
         </div>
@@ -184,7 +184,7 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
         </div>
 
         <p className="small-muted">
-          {selectedPreset.note} The API key stays in React state and is sent only with chat requests.
+          {selectedPreset.note} Blank keys use the API server .env provider; browser-entered keys are saved locally.
         </p>
       </form>
     </section>

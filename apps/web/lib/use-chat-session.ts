@@ -49,6 +49,18 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error.";
 }
 
+function providerOverrides(settings: ModelSettings) {
+  const apiKey = settings.apiKey.trim();
+  if (!apiKey) {
+    return {};
+  }
+  return {
+    base_url: settings.baseUrl.trim() || undefined,
+    model: settings.model.trim() || undefined,
+    api_key: apiKey,
+  };
+}
+
 export function useChatSession({
   activeConversation,
   activeLibrary,
@@ -154,9 +166,7 @@ export function useChatSession({
         top_k: settings.retrievalTopK,
         messages: priorMessages,
         provider: settings.provider,
-        base_url: settings.baseUrl.trim() || undefined,
-        model: settings.model.trim() || undefined,
-        api_key: settings.apiKey || undefined,
+        ...providerOverrides(settings),
         temperature: settings.temperature,
         enable_image_context: settings.useMultimodalContext,
         max_evidence_images: settings.maxEvidenceImages,
@@ -201,10 +211,10 @@ export function useChatSession({
       if (done.summary_message) {
         const sm = done.summary_message;
         const summaryMsg: ChatMessage = {
-          id: sm.id,
+          id: sm.id ?? `summary-${Date.now()}`,
           role: sm.role as "user" | "assistant",
           content: sm.content,
-          citations: sm.citations.map(mapWorkspaceCitation),
+          citations: (sm.citations ?? []).map(mapWorkspaceCitation),
         };
         nextMessages = [summaryMsg, ...nextMessages];
       }

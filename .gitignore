@@ -50,6 +50,7 @@ qdrant_storage/
 *.sqlite3
 
 # Logs and generated artifacts
+.codex-run/
 logs/
 *.log
 coverage/

@@ -29,14 +29,14 @@ class FakeIndexer:
     def __init__(self) -> None:
         self.calls: list[tuple[str, list[Path]]] = []
 
-    async def index_pages(self, paper_id: str, page_paths: Sequence[Path]) -> None:
+    async def index_pages(self, paper_id: str, page_paths: Sequence[Path], captions=None) -> None:
         paths = list(page_paths)
         assert all(path.exists() for path in paths)
         self.calls.append((paper_id, paths))
 
 
 class FailingIndexer:
-    async def index_pages(self, paper_id: str, page_paths: Sequence[Path]) -> None:
+    async def index_pages(self, paper_id: str, page_paths: Sequence[Path], captions=None) -> None:
         _ = (paper_id, page_paths)
         raise RuntimeError("qdrant unavailable")
 

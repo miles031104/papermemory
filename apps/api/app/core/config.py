@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     byok_api_key: str | None = None
     byok_model: str = "gpt-4.1-mini"
     byok_timeout_seconds: float = Field(default=60.0, gt=0)
-    byok_enable_image_context: bool = False
+    byok_enable_image_context: bool = True
     byok_max_evidence_images: int = Field(default=3, ge=0, le=10)
     byok_max_image_bytes: int = Field(default=2 * 1024 * 1024, gt=0)
 

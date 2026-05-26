@@ -15,7 +15,7 @@ from app.services.context_builder import (
     compress_conversation_history,
     select_recent_conversation_messages,
 )
-from app.services.model_gateway import ModelGateway
+from app.services.model_gateway import BuiltUserContent, ModelGateway
 from app.services.page_image_resolver import PageImageResolver
 from app.services.vector_store import VectorStore
 from app.services.visrag_service import VisRAGService
@@ -44,16 +44,10 @@ class ChatService:
         paper_scope_count = len(request.paper_ids or [])
         evidence, retrieval_attempted = await self._do_retrieval(request)
 
-        verified_prompt = self.build_evisrag_prompt(
-            question=request.question,
+        verified_prompt, user_content = self._build_generation_content(
+            request=request,
             evidence=evidence,
             retrieval_attempted=retrieval_attempted,
-        )
-        user_content = self.model_gateway.build_user_content(
-            text=verified_prompt,
-            image_paths=self._resolve_authorized_image_paths(evidence),
-            enable_image_context=request.enable_image_context,
-            max_evidence_images=request.max_evidence_images,
         )
         selected_messages = select_recent_conversation_messages(request.messages)
         messages = [
@@ -116,16 +110,10 @@ class ChatService:
             "note": self._build_retrieval_note(evidence, retrieval_attempted),
         }
 
-        prompt = self.build_evisrag_prompt(
-            question=request.question,
+        prompt, user_content = self._build_generation_content(
+            request=request,
             evidence=evidence,
             retrieval_attempted=retrieval_attempted,
-        )
-        user_content = self.model_gateway.build_user_content(
-            text=prompt,
-            image_paths=self._resolve_authorized_image_paths(evidence),
-            enable_image_context=request.enable_image_context,
-            max_evidence_images=request.max_evidence_images,
         )
         selected_messages = select_recent_conversation_messages(request.messages)
         messages = [
@@ -341,12 +329,63 @@ class ChatService:
         question: str,
         evidence: list[PageEvidence],
         retrieval_attempted: bool = False,
+        include_captions: bool = True,
     ) -> str:
         return build_context_prompt(
             question=question,
             evidence=evidence,
             retrieval_attempted=retrieval_attempted,
+            include_captions=include_captions,
         )
+
+    def _build_generation_content(
+        self,
+        request: ChatRequest,
+        evidence: list[PageEvidence],
+        retrieval_attempted: bool,
+    ) -> tuple[str, BuiltUserContent]:
+        wants_image_context = self._wants_image_context(request)
+        prompt = self.build_evisrag_prompt(
+            question=request.question,
+            evidence=evidence,
+            retrieval_attempted=retrieval_attempted,
+            include_captions=not wants_image_context,
+        )
+        user_content = self.model_gateway.build_user_content(
+            text=prompt,
+            image_paths=self._resolve_authorized_image_paths(evidence),
+            enable_image_context=request.enable_image_context,
+            max_evidence_images=request.max_evidence_images,
+        )
+
+        if evidence and wants_image_context and user_content.included_image_count == 0:
+            prompt = self.build_evisrag_prompt(
+                question=request.question,
+                evidence=evidence,
+                retrieval_attempted=retrieval_attempted,
+                include_captions=True,
+            )
+            user_content = self.model_gateway.build_user_content(
+                text=prompt,
+                image_paths=[],
+                enable_image_context=False,
+                max_evidence_images=0,
+            )
+
+        return prompt, user_content
+
+    def _wants_image_context(self, request: ChatRequest) -> bool:
+        enable_image_context = (
+            getattr(self.model_gateway, "enable_image_context", False)
+            if request.enable_image_context is None
+            else request.enable_image_context
+        )
+        max_evidence_images = (
+            getattr(self.model_gateway, "max_evidence_images", 0)
+            if request.max_evidence_images is None
+            else request.max_evidence_images
+        )
+        return bool(enable_image_context and max_evidence_images > 0)
 
     @staticmethod
     def _build_retrieval_note(evidence: list[PageEvidence], retrieval_attempted: bool) -> str:

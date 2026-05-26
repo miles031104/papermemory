@@ -4,6 +4,10 @@ from pathlib import Path
 class PdfRenderer:
     """Renders local PDFs into page images, matching the first VisRAG ingestion step."""
 
+    # Maximum characters kept per page. Long pages are truncated so captions
+    # don't bloat the LLM context window.
+    _MAX_CAPTION_CHARS = 2000
+
     def __init__(self, zoom: float = 2.0, max_pages: int = 200) -> None:
         self.zoom = zoom
         self.max_pages = max_pages
@@ -28,3 +32,22 @@ class PdfRenderer:
                 rendered_paths.append(image_path)
 
         return rendered_paths
+
+    def extract_page_texts(self, pdf_path: Path) -> list[str | None]:
+        """Extract plain text from each PDF page using PyMuPDF.
+
+        Returns one entry per page (None when a page has no selectable text,
+        e.g. a scanned image page).  Texts are truncated to ``_MAX_CAPTION_CHARS``
+        to keep vector store payloads and LLM context windows manageable.
+        """
+        import fitz
+
+        texts: list[str | None] = []
+        with fitz.open(pdf_path) as document:
+            for page_index in range(document.page_count):
+                raw = document.load_page(page_index).get_text("text").strip()
+                if raw:
+                    texts.append(raw[: self._MAX_CAPTION_CHARS])
+                else:
+                    texts.append(None)
+        return texts

@@ -81,6 +81,29 @@ def test_evisrag_prompt_mentions_page_evidence() -> None:
     assert "image_ref=/papers/paper-1/pages/7/image" in prompt
 
 
+def test_evisrag_prompt_can_omit_captions_for_multimodal_context() -> None:
+    service = ChatService(visrag=None, vector_store=None, model_gateway=None)  # type: ignore[arg-type]
+
+    prompt = service.build_evisrag_prompt(
+        question="What does the ablation table show?",
+        evidence=[
+            PageEvidence(
+                paper_id="paper-1",
+                page_number=7,
+                score=0.91,
+                image_path=".papermemory/rendered_pages/paper-1/page-0007.png",
+                caption="Ablation results should only be used in text fallback",
+            )
+        ],
+        include_captions=False,
+    )
+
+    assert "citation_id=paper-1 p.7" in prompt
+    assert "image_ref=/papers/paper-1/pages/7/image" in prompt
+    assert "Ablation results should only be used in text fallback" not in prompt
+    assert "caption=" not in prompt
+
+
 def test_evisrag_prompt_does_not_trust_evidence_image_url() -> None:
     service = ChatService(visrag=None, vector_store=None, model_gateway=None)  # type: ignore[arg-type]
     local_image_url = r"C:\Users\Miles\secret.png"
@@ -254,6 +277,7 @@ def test_chat_service_adds_page_image_content_when_enabled(tmp_path) -> None:
                     page_number=1,
                     score=0.9,
                     image_path=str(image_path),
+                    caption="This caption should not be sent when the image is attached.",
                 )
             ]
         ),  # type: ignore[arg-type]
@@ -272,9 +296,51 @@ def test_chat_service_adds_page_image_content_when_enabled(tmp_path) -> None:
     assert response.stats.included_image_count == 1
     assert response.limits == []
     assert user_content[0]["type"] == "text"
+    assert "This caption should not be sent when the image is attached." not in user_content[0]["text"]
+    assert "This caption should not be sent when the image is attached." not in response.prompt_preview
     assert str(image_path) not in user_content[0]["text"]
     assert user_content[1]["type"] == "image_url"
     assert user_content[1]["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+def test_chat_service_uses_caption_when_image_context_is_disabled(tmp_path) -> None:
+    image_path = tmp_path / "rendered_pages" / "paper-1" / "page-0001.png"
+    image_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    settings = Settings(storage_root=tmp_path, byok_enable_image_context=True)
+    gateway = RecordingModelGateway(settings)
+    service = ChatService(
+        visrag=FakeVisRAG(),  # type: ignore[arg-type]
+        vector_store=FakeVectorStore(
+            evidence=[
+                PageEvidence(
+                    paper_id="paper-1",
+                    page_number=1,
+                    score=0.9,
+                    image_path=str(image_path),
+                    caption="Text fallback from extracted PDF content.",
+                )
+            ]
+        ),  # type: ignore[arg-type]
+        model_gateway=gateway,
+        page_image_resolver=PageImageResolver(StoragePaths(settings)),
+    )
+
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                question="What is shown?",
+                paper_ids=["paper-1"],
+                enable_image_context=False,
+            )
+        )
+    )
+    user_content = gateway.messages[-1]["content"]
+
+    assert response.stats.included_image_count == 0
+    assert response.limits == ["Text-only evidence context; no page images were included."]
+    assert isinstance(user_content, str)
+    assert "Text fallback from extracted PDF content." in user_content
 
 
 def test_chat_request_can_enable_image_context_for_one_request(tmp_path) -> None:

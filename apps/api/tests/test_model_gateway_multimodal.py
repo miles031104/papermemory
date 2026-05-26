@@ -6,6 +6,12 @@ from app.core.config import Settings
 from app.services.model_gateway import ModelGateway, ModelGatewayError
 
 
+def test_image_context_is_enabled_by_default() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.byok_enable_image_context is True
+
+
 def test_build_user_content_returns_text_only_when_image_context_disabled(tmp_path) -> None:
     image_path = tmp_path / "page-0001.png"
     image_path.write_bytes(b"\x89PNG\r\n\x1a\nfake")

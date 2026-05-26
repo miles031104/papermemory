@@ -178,6 +178,7 @@ def build_evisrag_prompt(
     question: str,
     evidence: list[PageEvidence],
     retrieval_attempted: bool = False,
+    include_captions: bool = True,
 ) -> str:
     """Build the per-turn user prompt for the LLM.
 
@@ -217,7 +218,7 @@ def build_evisrag_prompt(
         )
 
     evidence_block = "\n".join(
-        _format_evidence_item(item) for item in evidence
+        _format_evidence_item(item, include_caption=include_captions) for item in evidence
     )
     return (
         "Use an EVisRAG-style evidence-first workflow internally, but do not narrate "
@@ -236,7 +237,7 @@ def build_evisrag_prompt(
     )
 
 
-def _format_evidence_item(item: PageEvidence) -> str:
+def _format_evidence_item(item: PageEvidence, include_caption: bool = True) -> str:
     """Format a single evidence item with confidence tier and available metadata."""
     if item.score >= EVIDENCE_HIGH_CONFIDENCE:
         confidence = "high"
@@ -255,14 +256,14 @@ def _format_evidence_item(item: PageEvidence) -> str:
     if item.metadata and item.metadata.get("authors"):
         author_label = f", authors={item.metadata['authors']!r}"
 
-    caption_label = f"caption={item.caption or 'none'}"
     image_ref = _evidence_image_reference(item)
+    caption_label = f", caption={item.caption or 'none'}" if include_caption else ""
 
     return (
         f"- [{confidence}] paper_id={item.paper_id}, page={item.page_number}, "
         f"citation_id={item.paper_id} p.{item.page_number}, "
         f"score={item.score:.4f}{title_label}{author_label}, "
-        f"image_ref={image_ref}, {caption_label}"
+        f"image_ref={image_ref}{caption_label}"
     )
 
 

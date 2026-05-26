@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.core.config import Settings, get_settings
 from app.core.paths import StoragePaths
@@ -14,6 +15,13 @@ from app.services.vector_store import VectorStore
 from app.services.visrag_service import VisRAGService, VisRAGUnavailable
 
 router = APIRouter()
+
+
+def _json_default(obj: object) -> object:
+    """Serialize Pydantic models; fall back to str for other non-serializable types."""
+    if isinstance(obj, BaseModel):
+        return obj.model_dump(mode="json")
+    return str(obj)
 
 
 def get_chat_service(settings: Settings = Depends(get_settings)) -> ChatService:
@@ -40,10 +48,10 @@ async def _sse_stream(service: ChatService, request: ChatRequest):
         elif "evidence_ready" in chunk:
             payload = json.dumps(
                 {"type": "evidence", "evidence": chunk["evidence_ready"], "note": chunk.get("note")},
-                default=str,
+                default=_json_default,
             )
         else:
-            payload = json.dumps({"type": "done", **chunk}, default=str)
+            payload = json.dumps({"type": "done", **chunk}, default=_json_default)
         yield f"data: {payload}\n\n"
 
 

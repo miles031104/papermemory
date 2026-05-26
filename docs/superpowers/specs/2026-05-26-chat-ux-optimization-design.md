@@ -206,5 +206,5 @@ Add to `apps/web/package.json` dependencies.
 ## Error handling
 
 - If `streamChat` fails mid-stream (network drop), the partially assembled content is discarded and `chatError` is set.
-- If `?stream=true` is not supported by the running backend version (e.g. older deploy), the frontend falls back to `createChat()` (non-streaming) for that request.
+- The frontend always uses `streamChat()` — no fallback to non-streaming. Both frontend and backend are deployed together so version mismatch is not a concern.
 - `generate_stream()` propagates `ModelGatewayError` the same way `generate()` does.

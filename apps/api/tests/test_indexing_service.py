@@ -29,6 +29,7 @@ class FakeVectorStore:
         page_number: int,
         embedding: list[float],
         image_path: str,
+        caption: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None:
         self.upserts.append(
@@ -37,6 +38,7 @@ class FakeVectorStore:
                 "page_number": page_number,
                 "embedding": embedding,
                 "image_path": image_path,
+                "caption": caption,
                 "metadata": metadata,
             }
         )
@@ -62,6 +64,7 @@ def test_index_pages_uses_visrag_image_embeddings_and_writes_metadata(
             "page_number": 1,
             "embedding": [0.6, 0.8],
             "image_path": str(page_paths[0]),
+            "caption": None,
             "metadata": {
                 "embedding_model": "openbmb/VisRAG-Ret",
                 "embedding_instruction": (
@@ -74,6 +77,7 @@ def test_index_pages_uses_visrag_image_embeddings_and_writes_metadata(
             "page_number": 2,
             "embedding": [0.6, 0.8],
             "image_path": str(page_paths[1]),
+            "caption": None,
             "metadata": {
                 "embedding_model": "openbmb/VisRAG-Ret",
                 "embedding_instruction": (
