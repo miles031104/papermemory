@@ -99,6 +99,42 @@ def test_create_conversation_and_update_messages(tmp_path: Path) -> None:
     assert updated.json()["messages"][1]["citations"][0]["paper_id"] == "paper-1"
 
 
+def test_delete_conversation_removes_chat_history_only(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    library_id = client.get("/workspace").json()["libraries"][0]["id"]
+    created = client.post(
+        f"/workspace/libraries/{library_id}/conversations",
+        json={
+            "title": "Delete this chat",
+            "messages": [
+                {
+                    "id": "msg-delete",
+                    "role": "user",
+                    "content": "temporary",
+                    "citations": [],
+                }
+            ],
+        },
+    ).json()
+
+    response = client.delete(f"/workspace/conversations/{created['id']}")
+
+    assert response.status_code == 204
+    body = client.get("/workspace").json()
+    assert any(library["id"] == library_id for library in body["libraries"])
+    assert all(conversation["id"] != created["id"] for conversation in body["conversations"])
+
+
+def test_delete_missing_conversation_returns_404(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.get("/workspace")
+
+    response = client.delete("/workspace/conversations/conversation-missing")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Conversation not found."
+
+
 def test_update_library_assigns_paper_ids(tmp_path: Path) -> None:
     _write_ready_paper(tmp_path, "paper-2")
     client = _client(tmp_path)
@@ -603,3 +639,75 @@ def test_move_unknown_paper_to_group_returns_400(tmp_path: Path) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Unknown paper id: missing-paper"
+
+
+def test_delete_library_removes_workspace_scope_without_deleting_paper_files(tmp_path: Path) -> None:
+    _write_ready_paper(tmp_path, "paper-keep")
+    client = _client(tmp_path)
+    client.get("/workspace")
+    library = client.post("/workspace/libraries", json={"name": "Temporary library"}).json()
+    client.patch(f"/workspace/libraries/{library['id']}", json={"paper_ids": ["paper-keep"]})
+    group = client.post(
+        f"/workspace/libraries/{library['id']}/paper-groups",
+        json={"name": "Temporary group", "paper_ids": ["paper-keep"]},
+    ).json()
+    conversation = client.post(
+        f"/workspace/libraries/{library['id']}/conversations",
+        json={"title": "Temporary chat"},
+    ).json()
+
+    response = client.delete(f"/workspace/libraries/{library['id']}")
+
+    assert response.status_code == 204
+    body = client.get("/workspace").json()
+    assert all(item["id"] != library["id"] for item in body["libraries"])
+    assert all(item["id"] != group["id"] for item in body["paper_groups"])
+    assert all(item["id"] != conversation["id"] for item in body["conversations"])
+    assert (tmp_path / "papers" / "paper-keep" / "metadata.json").exists()
+
+
+def test_delete_last_library_returns_400(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    library_id = client.get("/workspace").json()["libraries"][0]["id"]
+
+    response = client.delete(f"/workspace/libraries/{library_id}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Cannot delete the last library."
+
+
+def test_delete_paper_group_moves_papers_to_default_group(tmp_path: Path) -> None:
+    _write_ready_paper(tmp_path, "paper-move")
+    client = _client(tmp_path)
+    library_id = client.get("/workspace").json()["libraries"][0]["id"]
+    custom_group = client.post(
+        f"/workspace/libraries/{library_id}/paper-groups",
+        json={"name": "Delete me", "paper_ids": ["paper-move"]},
+    ).json()
+
+    response = client.delete(f"/workspace/paper-groups/{custom_group['id']}")
+
+    assert response.status_code == 204
+    groups = client.get("/workspace").json()["paper_groups"]
+    assert all(group["id"] != custom_group["id"] for group in groups)
+    default_group = next(group for group in groups if group["name"] == "Ungrouped uploads")
+    assert default_group["paper_ids"] == ["paper-move"]
+
+
+def test_delete_default_or_last_paper_group_returns_400(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    body = client.get("/workspace").json()
+    default_group = next(group for group in body["paper_groups"] if group["name"] == "Ungrouped uploads")
+
+    last_group_response = client.delete(f"/workspace/paper-groups/{default_group['id']}")
+
+    assert last_group_response.status_code == 400
+    assert last_group_response.json()["detail"] == "Cannot delete the last paper group in a library."
+
+    library_id = body["libraries"][0]["id"]
+    client.post(f"/workspace/libraries/{library_id}/paper-groups", json={"name": "Other group"})
+
+    default_group_response = client.delete(f"/workspace/paper-groups/{default_group['id']}")
+
+    assert default_group_response.status_code == 400
+    assert default_group_response.json()["detail"] == "Cannot delete the default ungrouped uploads group."

@@ -2,6 +2,7 @@ import type {
   ApiChatRequest,
   ApiChatResponse,
   ApiChatStreamDone,
+  ApiChatStreamError,
   ApiHealthResponse,
   ApiPageEvidence,
   ApiPaperListResponse,
@@ -98,6 +99,13 @@ export const paperMemoryApi = {
     });
   },
 
+  deleteLibrary(libraryId: string, baseUrl?: string) {
+    return requestVoid(`/workspace/libraries/${libraryId}`, {
+      method: "DELETE",
+      baseUrl
+    });
+  },
+
   createConversation(
     libraryId: string,
     request: { title?: string; description?: string; messages?: ApiWorkspaceMessage[] },
@@ -122,6 +130,13 @@ export const paperMemoryApi = {
     });
   },
 
+  deleteConversation(conversationId: string, baseUrl?: string) {
+    return requestVoid(`/workspace/conversations/${conversationId}`, {
+      method: "DELETE",
+      baseUrl
+    });
+  },
+
   createPaperGroup(
     libraryId: string,
     request: { name: string; description?: string; paper_ids?: string[] },
@@ -142,6 +157,13 @@ export const paperMemoryApi = {
     return requestJson<ApiPaperGroup>(`/workspace/paper-groups/${groupId}`, {
       method: "PATCH",
       body: request,
+      baseUrl
+    });
+  },
+
+  deletePaperGroup(groupId: string, baseUrl?: string) {
+    return requestVoid(`/workspace/paper-groups/${groupId}`, {
+      method: "DELETE",
       baseUrl
     });
   },
@@ -237,31 +259,38 @@ export const paperMemoryApi = {
         const line = part.trim();
         if (!line.startsWith("data:")) continue;
         const dataStr = line.slice(5).trim();
+        let parsed: {
+          type: string;
+          content?: string;
+          answer?: string;
+          evidence?: ApiPageEvidence[];
+          note?: string | null;
+          stats?: Record<string, unknown>;
+          summary_message?: import("@/lib/types").ApiWorkspaceMessage | null;
+          status?: number;
+          detail?: string;
+        };
         try {
-          const parsed = JSON.parse(dataStr) as {
-            type: string;
-            content?: string;
-            answer?: string;
-            evidence?: ApiPageEvidence[];
-            note?: string | null;
-            stats?: Record<string, unknown>;
-            summary_message?: import("@/lib/types").ApiWorkspaceMessage | null;
-          };
-          if (parsed.type === "delta" && parsed.content) {
-            onDelta(parsed.content);
-          } else if (parsed.type === "evidence") {
-            onEvidence?.(parsed.evidence ?? [], parsed.note ?? null);
-          } else if (parsed.type === "done") {
-            result = {
-              answer: parsed.answer ?? "",
-              evidence: parsed.evidence ?? [],
-              note: parsed.note ?? null,
-              stats: parsed.stats ?? {},
-              summary_message: parsed.summary_message ?? null,
-            };
-          }
+          parsed = JSON.parse(dataStr);
         } catch {
           // skip malformed SSE lines
+          continue;
+        }
+        if (parsed.type === "delta" && parsed.content) {
+          onDelta(parsed.content);
+        } else if (parsed.type === "evidence") {
+          onEvidence?.(parsed.evidence ?? [], parsed.note ?? null);
+        } else if (parsed.type === "done") {
+          result = {
+            answer: parsed.answer ?? "",
+            evidence: parsed.evidence ?? [],
+            note: parsed.note ?? null,
+            stats: parsed.stats ?? {},
+            summary_message: parsed.summary_message ?? null,
+          };
+        } else if (parsed.type === "error") {
+          const streamError = parsed as ApiChatStreamError;
+          throw new Error(streamError.detail || `Chat stream failed with status ${streamError.status}.`);
         }
       }
     }

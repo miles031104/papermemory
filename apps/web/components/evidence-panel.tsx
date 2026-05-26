@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import type { ApiPageEvidence, EvidenceItem } from "@/lib/types";
 
 interface EvidencePanelProps {
@@ -61,52 +63,137 @@ function formatEvidence(
 }
 
 export function EvidencePanel({ evidence, paperTitles = {}, note, apiBaseUrl }: EvidencePanelProps) {
-  const normalizedEvidence = evidence.map((item) => formatEvidence(item, paperTitles, apiBaseUrl));
+  const normalizedEvidence = useMemo(
+    () => evidence.map((item) => formatEvidence(item, paperTitles, apiBaseUrl)),
+    [apiBaseUrl, evidence, paperTitles],
+  );
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
+  const selectedEvidence =
+    normalizedEvidence.find((item) => item.id === selectedEvidenceId) ?? null;
+
+  useEffect(() => {
+    if (!selectedEvidenceId) {
+      return;
+    }
+    if (!normalizedEvidence.some((item) => item.id === selectedEvidenceId)) {
+      setSelectedEvidenceId(null);
+    }
+  }, [normalizedEvidence, selectedEvidenceId]);
+
+  useEffect(() => {
+    if (!selectedEvidence) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedEvidenceId(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedEvidence]);
 
   return (
-    <section className="panel" aria-labelledby="evidence-title">
-      <div className="panel__header">
-        <div>
-          <h2 id="evidence-title">Retrieval evidence</h2>
-          <p>Page-level citations queued for grounded generation.</p>
+    <>
+      <section className="panel evidence-panel" aria-labelledby="evidence-title">
+        <div className="panel__header">
+          <div>
+            <h2 id="evidence-title">Retrieval evidence</h2>
+            <p>Page-level citations queued for grounded generation.</p>
+          </div>
         </div>
-      </div>
-      <div className="panel__body">
-        {note ? <p className="inline-alert">{note}</p> : null}
-        {normalizedEvidence.length === 0 ? (
-          <p className="small-muted">No page evidence is attached to the current conversation yet.</p>
-        ) : null}
-        <ol className="evidence-list" aria-label="Retrieved page evidence">
-          {normalizedEvidence.map((item) => (
-            <li className="evidence-item" key={item.id} id={`evidence-${item.paperId}-${item.page}`}>
-              <div className="evidence-item__top">
-                <div>
-                  <p className="evidence-title">{item.paperTitle}</p>
-                  <p className="small-muted">
-                    Page {item.page} | {item.retriever}
-                  </p>
-                </div>
-                <div className="page-thumb" aria-label={`Page ${item.page} preview placeholder`}>
-                  p.{item.page}
-                </div>
+        <div className="panel__body evidence-panel__body">
+          {note ? <p className="inline-alert">{note}</p> : null}
+          {normalizedEvidence.length === 0 ? (
+            <p className="small-muted">No page evidence is attached to the current conversation yet.</p>
+          ) : null}
+          <ol className="evidence-list" aria-label="Retrieved page evidence">
+            {normalizedEvidence.map((item) => (
+              <li className="evidence-item" key={item.id} id={`evidence-${item.paperId}-${item.page}`}>
+                <button
+                  className="evidence-card-button"
+                  type="button"
+                  onClick={() => setSelectedEvidenceId(item.id)}
+                  aria-label={`Open evidence page ${item.page} from ${item.paperTitle}`}
+                >
+                  <div className="evidence-item__top">
+                    <div>
+                      <p className="evidence-title">{item.paperTitle}</p>
+                      <p className="small-muted">
+                        Page {item.page} | {item.retriever}
+                      </p>
+                    </div>
+                    <div className="page-thumb" aria-label={`Page ${item.page} preview`}>
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt="" loading="lazy" />
+                      ) : (
+                        <span>p.{item.page}</span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="evidence-snippet">{item.snippet}</p>
+                  <div className="confidence-meter" aria-label={`${item.confidence}% confidence`}>
+                    <span>{item.confidence}%</span>
+                    <div className="progress-track">
+                      <div className="progress-bar" style={{ width: `${item.confidence}%` }} />
+                    </div>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {selectedEvidence ? (
+        <div
+          className="evidence-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="evidence-dialog-title"
+          onClick={() => setSelectedEvidenceId(null)}
+        >
+          <div className="evidence-dialog__surface" onClick={(event) => event.stopPropagation()}>
+            <div className="evidence-dialog__header">
+              <div>
+                <p className="eyebrow">Page evidence</p>
+                <h2 id="evidence-dialog-title">{selectedEvidence.paperTitle}</h2>
+                <p>
+                  Page {selectedEvidence.page} | {selectedEvidence.confidence}% confidence
+                </p>
               </div>
-              {item.imageUrl ? (
-                <figure className="page-preview">
-                  <img src={item.imageUrl} alt={`${item.paperTitle}, page ${item.page}`} loading="lazy" />
-                  <figcaption>Page image evidence</figcaption>
-                </figure>
-              ) : null}
-              <p className="evidence-snippet">{item.snippet}</p>
-              <div className="confidence-meter" aria-label={`${item.confidence}% confidence`}>
-                <span>{item.confidence}%</span>
-                <div className="progress-track">
-                  <div className="progress-bar" style={{ width: `${item.confidence}%` }} />
-                </div>
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Close evidence preview"
+                onClick={() => setSelectedEvidenceId(null)}
+              >
+                x
+              </button>
+            </div>
+            <div className="evidence-dialog__content">
+              <div className="evidence-dialog__image">
+                {selectedEvidence.imageUrl ? (
+                  <img
+                    src={selectedEvidence.imageUrl}
+                    alt={`${selectedEvidence.paperTitle}, page ${selectedEvidence.page}`}
+                  />
+                ) : (
+                  <div className="evidence-dialog__empty-image">
+                    Page {selectedEvidence.page}
+                  </div>
+                )}
               </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
+              <div className="evidence-dialog__text">
+                <p className="eyebrow">Extracted text</p>
+                <p>{selectedEvidence.snippet}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

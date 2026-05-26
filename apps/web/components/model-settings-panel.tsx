@@ -41,18 +41,6 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
         onSubmit={(event) => event.preventDefault()}
       >
         <div className="field">
-          <label htmlFor="provider">Provider</label>
-          <select
-            id="provider"
-            name="provider"
-            value={settings.provider}
-            onChange={() => updateSettings({ provider: "openai-compatible" })}
-          >
-            <option value="openai-compatible">OpenAI compatible</option>
-          </select>
-        </div>
-
-        <div className="field">
           <label htmlFor="provider-company">Company</label>
           <select
             id="provider-company"
@@ -118,45 +106,6 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
           />
         </div>
 
-        <div className="slider-row">
-          <label htmlFor="temperature">Temperature: {settings.temperature}</label>
-          <input
-            id="temperature"
-            name="temperature"
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={settings.temperature}
-            onChange={(event) => updateSettings({ temperature: Number(event.target.value) })}
-          />
-        </div>
-
-        <div className="slider-row">
-          <label htmlFor="retrieval-top-k">Retrieval top-k: {settings.retrievalTopK}</label>
-          <input
-            id="retrieval-top-k"
-            name="retrieval-top-k"
-            type="range"
-            min="1"
-            max="25"
-            step="1"
-            value={settings.retrievalTopK}
-            onChange={(event) => updateSettings({ retrievalTopK: Number(event.target.value) })}
-          />
-        </div>
-
-        <div className="toggle">
-          <label htmlFor="evidence-only">Require page evidence</label>
-          <input
-            id="evidence-only"
-            name="evidence-only"
-            type="checkbox"
-            checked={settings.requireEvidence}
-            onChange={(event) => updateSettings({ requireEvidence: event.target.checked })}
-          />
-        </div>
-
         <div className="toggle">
           <label htmlFor="image-context">Attach page images</label>
           <input
@@ -182,6 +131,62 @@ export function ModelSettingsPanel({ settings, onChange }: ModelSettingsPanelPro
             }
           />
         </div>
+
+        <details className="settings-disclosure">
+          <summary>Generation and retrieval tuning</summary>
+          <div className="settings-disclosure__body">
+            <div className="field">
+              <label htmlFor="provider">Provider</label>
+              <select
+                id="provider"
+                name="provider"
+                value={settings.provider}
+                onChange={() => updateSettings({ provider: "openai-compatible" })}
+              >
+                <option value="openai-compatible">OpenAI compatible</option>
+              </select>
+            </div>
+
+            <div className="slider-row">
+              <label htmlFor="temperature">Temperature: {settings.temperature}</label>
+              <input
+                id="temperature"
+                name="temperature"
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={settings.temperature}
+                onChange={(event) => updateSettings({ temperature: Number(event.target.value) })}
+              />
+            </div>
+
+            <div className="slider-row">
+              <label htmlFor="retrieval-top-k">Retrieval top-k: {settings.retrievalTopK}</label>
+              <input
+                id="retrieval-top-k"
+                name="retrieval-top-k"
+                type="range"
+                min="1"
+                max="25"
+                step="1"
+                value={settings.retrievalTopK}
+                onChange={(event) => updateSettings({ retrievalTopK: Number(event.target.value) })}
+              />
+            </div>
+
+            <div className="toggle">
+              <label htmlFor="evidence-only">Require page evidence</label>
+              <input
+                id="evidence-only"
+                name="evidence-only"
+                type="checkbox"
+                checked={settings.requireEvidence}
+                onChange={(event) => updateSettings({ requireEvidence: event.target.checked })}
+              />
+            </div>
+          </div>
+        </details>
 
         <p className="small-muted">
           {selectedPreset.note} Blank keys use the API server .env provider; browser-entered keys are saved locally.

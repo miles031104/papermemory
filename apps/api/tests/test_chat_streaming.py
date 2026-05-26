@@ -3,6 +3,8 @@ import json as json_lib
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from fastapi import HTTPException
+
 from app.schemas.chat import ChatMessage, ChatRequest
 from app.schemas.retrieval import PageEvidence
 from app.services.chat_service import ChatService
@@ -408,3 +410,50 @@ def test_chat_stream_endpoint_returns_sse_with_evidence_delta_and_done_frames():
     evidence_idx = frame_types.index("evidence")
     first_delta_idx = frame_types.index("delta")
     assert evidence_idx < first_delta_idx, "evidence frame must precede delta frames"
+
+
+def test_chat_stream_endpoint_returns_error_frame_for_provider_failure():
+    """Streaming provider errors should be sent as SSE, not dropped by closing the socket."""
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+    from app.routers import chat as chat_router
+
+    class FailingStreamingGateway(StreamingGateway):
+        async def generate_stream(
+            self,
+            messages: Any,
+            model: str | None = None,
+            base_url: str | None = None,
+            api_key: str | None = None,
+            temperature: float = 0.2,
+        ) -> AsyncGenerator[str, None]:
+            raise HTTPException(status_code=502, detail="Model provider error: request failed: ConnectError")
+            yield ""
+
+    def _make_sse_chat_service() -> ChatService:
+        return ChatService(
+            visrag=StubVisRAG(),
+            vector_store=EmptyVectorStore(),
+            model_gateway=FailingStreamingGateway(tokens=[]),
+            page_image_resolver=None,
+        )
+
+    app = create_app()
+    app.dependency_overrides[chat_router.get_chat_service] = _make_sse_chat_service
+
+    client = TestClient(app, raise_server_exceptions=True)
+    response = client.post(
+        "/chat?stream=true",
+        json={"question": "Test provider failure?", "paper_ids": None},
+    )
+
+    assert response.status_code == 200
+    frames = [
+        json_lib.loads(line[5:].strip())
+        for line in response.text.split("\n")
+        if line.startswith("data:")
+    ]
+
+    assert frames[-1]["type"] == "error"
+    assert frames[-1]["status"] == 502
+    assert frames[-1]["detail"] == "Model provider error: request failed: ConnectError"

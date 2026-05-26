@@ -171,6 +171,7 @@ export function useChatSession({
         enable_image_context: settings.useMultimodalContext,
         max_evidence_images: settings.maxEvidenceImages,
         enable_query_rewrite: true,
+        enable_agentic_retrieval: true,
       };
 
       const done = await paperMemoryApi.streamChat(

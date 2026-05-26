@@ -27,6 +27,9 @@ interface ResearchSidebarProps {
   onCreateConversation: () => void;
   onCreateLibrary: (name: string, description: string) => Promise<void>;
   onCreateGroup: (libraryId: string, name: string, description: string) => Promise<void>;
+  onDeleteLibrary: (libraryId: string) => Promise<void>;
+  onDeleteGroup: (groupId: string) => Promise<void>;
+  onDeleteConversation: (conversationId: string) => Promise<void>;
 }
 
 const workspaceViews: Array<{ id: WorkspaceView; label: string }> = [
@@ -68,6 +71,9 @@ export function ResearchSidebar({
   onCreateConversation,
   onCreateLibrary,
   onCreateGroup,
+  onDeleteLibrary,
+  onDeleteGroup,
+  onDeleteConversation,
 }: ResearchSidebarProps) {
   const [isCreatingDatabase, setIsCreatingDatabase] = useState(false);
   const [databaseName, setDatabaseName] = useState("");
@@ -79,6 +85,7 @@ export function ResearchSidebar({
   const [groupDescription, setGroupDescription] = useState("");
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
+  const [conversationError, setConversationError] = useState<string | null>(null);
 
   const paperCountByLibrary = useMemo(
     () =>
@@ -162,6 +169,54 @@ export function ResearchSidebar({
       setGroupError(error instanceof Error ? error.message : "Could not create group.");
     } finally {
       setIsSubmittingGroup(false);
+    }
+  };
+
+  const handleDeleteLibrary = async (library: ResearchLibrary) => {
+    const confirmed = window.confirm(
+      `Delete library "${library.name}"? Papers stay in local storage, but this library's groups and chats are removed.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDatabaseError(null);
+    try {
+      await onDeleteLibrary(library.id);
+    } catch (error) {
+      setDatabaseError(error instanceof Error ? error.message : "Could not delete library.");
+    }
+  };
+
+  const handleDeleteGroup = async (group: PaperGroup) => {
+    const confirmed = window.confirm(
+      `Delete group "${group.name}"? Papers move to Ungrouped uploads.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setGroupError(null);
+    try {
+      await onDeleteGroup(group.id);
+    } catch (error) {
+      setGroupError(error instanceof Error ? error.message : "Could not delete group.");
+    }
+  };
+
+  const handleDeleteConversation = async (conversation: ResearchConversation) => {
+    const confirmed = window.confirm(
+      `Delete conversation "${conversation.title}"? This removes the chat history only.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setConversationError(null);
+    try {
+      await onDeleteConversation(conversation.id);
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "Could not delete conversation.");
     }
   };
 
@@ -256,33 +311,65 @@ export function ResearchSidebar({
 
             return (
               <div className="sidebar-tree-node" key={library.id}>
-                <button
-                  className={`sidebar-item${isActive ? " sidebar-item--active" : ""}`}
-                  type="button"
-                  onClick={() => onSelectLibrary(library.id)}
-                >
-                  <span className="sidebar-item__title">{library.name}</span>
-                  <span className="sidebar-item__meta">
-                    {paperCountByLibrary[library.id] ?? 0} papers
-                  </span>
-                </button>
-                {libraryGroups.map((group) => (
+                <div className="sidebar-item-row">
                   <button
-                    className={`sidebar-item sidebar-item--group${
-                      group.id === activeGroupId ? " sidebar-item--active" : ""
-                    }`}
+                    className={`sidebar-item${isActive ? " sidebar-item--active" : ""}`}
                     type="button"
-                    key={group.id}
-                    onClick={() => onSelectGroup(group.id)}
+                    onClick={() => onSelectLibrary(library.id)}
                   >
-                    <span className="sidebar-item__title">{group.name}</span>
-                    <span className="sidebar-item__meta">{paperCountByGroup[group.id] ?? 0}</span>
+                    <span className="sidebar-item__title">{library.name}</span>
+                    <span className="sidebar-item__meta">
+                      {paperCountByLibrary[library.id] ?? 0} papers
+                    </span>
                   </button>
+                  <button
+                    className="sidebar-delete-button"
+                    type="button"
+                    title={libraries.length <= 1 ? "Keep at least one library" : "Delete library"}
+                    aria-label={`Delete library ${library.name}`}
+                    disabled={libraries.length <= 1}
+                    onClick={() => {
+                      void handleDeleteLibrary(library);
+                    }}
+                  >
+                    x
+                  </button>
+                </div>
+                {libraryGroups.map((group) => (
+                  <div className="sidebar-item-row sidebar-item-row--group" key={group.id}>
+                    <button
+                      className={`sidebar-item sidebar-item--group${
+                        group.id === activeGroupId ? " sidebar-item--active" : ""
+                      }`}
+                      type="button"
+                      onClick={() => onSelectGroup(group.id)}
+                    >
+                      <span className="sidebar-item__title">{group.name}</span>
+                      <span className="sidebar-item__meta">{paperCountByGroup[group.id] ?? 0}</span>
+                    </button>
+                    <button
+                      className="sidebar-delete-button"
+                      type="button"
+                      title={
+                        libraryGroups.length <= 1 || group.name === "Ungrouped uploads"
+                          ? "Default or last groups stay as fallbacks"
+                          : "Delete group"
+                      }
+                      aria-label={`Delete group ${group.name}`}
+                      disabled={libraryGroups.length <= 1 || group.name === "Ungrouped uploads"}
+                      onClick={() => {
+                        void handleDeleteGroup(group);
+                      }}
+                    >
+                      x
+                    </button>
+                  </div>
                 ))}
               </div>
             );
           })}
         </div>
+        {databaseError ? <p className="inline-alert inline-alert--error">{databaseError}</p> : null}
       </nav>
 
       <nav className="sidebar-section" aria-labelledby="group-title">
@@ -341,6 +428,7 @@ export function ResearchSidebar({
             </div>
           </form>
         ) : null}
+        {groupError ? <p className="inline-alert inline-alert--error">{groupError}</p> : null}
       </nav>
 
       <nav className="sidebar-section sidebar-section--grow" aria-labelledby="conversation-title">
@@ -358,20 +446,33 @@ export function ResearchSidebar({
             const isActive = conversation.id === activeConversationId;
 
             return (
-              <button
-                className={`sidebar-item sidebar-item--conversation${
-                  isActive ? " sidebar-item--active" : ""
-                }`}
-                key={conversation.id}
-                type="button"
-                onClick={() => onSelectConversation(conversation.id)}
-              >
-                <span className="sidebar-item__title">{conversation.title}</span>
-                <span className="sidebar-item__meta">{formatTime(conversation.updatedAt)}</span>
-              </button>
+              <div className="sidebar-item-row" key={conversation.id}>
+                <button
+                  className={`sidebar-item sidebar-item--conversation${
+                    isActive ? " sidebar-item--active" : ""
+                  }`}
+                  type="button"
+                  onClick={() => onSelectConversation(conversation.id)}
+                >
+                  <span className="sidebar-item__title">{conversation.title}</span>
+                  <span className="sidebar-item__meta">{formatTime(conversation.updatedAt)}</span>
+                </button>
+                <button
+                  className="sidebar-delete-button"
+                  type="button"
+                  title="Delete conversation"
+                  aria-label={`Delete conversation ${conversation.title}`}
+                  onClick={() => {
+                    void handleDeleteConversation(conversation);
+                  }}
+                >
+                  x
+                </button>
+              </div>
             );
           })}
         </div>
+        {conversationError ? <p className="inline-alert inline-alert--error">{conversationError}</p> : null}
       </nav>
 
       <div className="library-entry">

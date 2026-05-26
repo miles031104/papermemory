@@ -74,6 +74,112 @@ def _two_turn_messages() -> list[ChatMessage]:
     ]
 
 
+def test_agentic_retrieval_runs_planned_queries_and_dedupes_top_k():
+    """The planner chooses bounded search queries; backend dedupes and ranks pages."""
+    async def run():
+        class MultiPassStore:
+            def __init__(self):
+                self.calls = 0
+
+            async def search_pages(self, embedding, top_k, paper_ids=None,
+                                   score_threshold=None, max_per_paper=None):
+                self.calls += 1
+                if self.calls == 1:
+                    return [
+                        PageEvidence(paper_id="p1", page_number=2, score=0.6, caption="method"),
+                        PageEvidence(paper_id="p1", page_number=3, score=0.4, caption="overview"),
+                    ]
+                if self.calls == 2:
+                    return [
+                        PageEvidence(paper_id="p1", page_number=2, score=0.9, caption="better duplicate"),
+                        PageEvidence(paper_id="p1", page_number=5, score=0.7, caption="experiment"),
+                    ]
+                if self.calls == 3:
+                    return [PageEvidence(paper_id="p1", page_number=8, score=0.8, caption="results")]
+                return [PageEvidence(paper_id="p1", page_number=13, score=0.1, caption="extra")]
+
+        gateway = RecordingGateway(
+            generate_text=(
+                '{"queries": ['
+                '{"query": "method architecture", "target_sections": ["method"]},'
+                '{"query": "experimental setup datasets baselines", "target_sections": ["experiments"]},'
+                '{"query": "result metrics comparison", "target_sections": ["results"]},'
+                '{"query": "limitations failure cases", "target_sections": ["limitations"]},'
+                '{"query": "ignored fifth query", "target_sections": ["extra"]}'
+                ']}'
+            )
+        )
+        visrag = TrackingVisRAG()
+        store = MultiPassStore()
+        service = ChatService(
+            visrag=visrag,
+            vector_store=store,
+            model_gateway=gateway,
+            page_image_resolver=None,
+        )
+        request = ChatRequest(
+            question="How strong is the method?",
+            paper_ids=["p1"],
+            top_k=3,
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            messages=_two_turn_messages(),
+            enable_agentic_retrieval=True,
+        )
+
+        evidence, retrieval_attempted = await service._do_retrieval(request)
+
+        assert retrieval_attempted is True
+        assert visrag.queries == [
+            "method architecture",
+            "experimental setup datasets baselines",
+            "result metrics comparison",
+            "limitations failure cases",
+        ]
+        assert [(item.paper_id, item.page_number, item.score) for item in evidence] == [
+            ("p1", 2, 0.9),
+            ("p1", 8, 0.8),
+            ("p1", 5, 0.7),
+        ]
+        assert len(gateway.generate_calls) == 1
+        assert "retrieval planner" in gateway.generate_calls[0][0]["content"]
+
+    asyncio.run(run())
+
+
+def test_agentic_retrieval_falls_back_to_query_rewrite_on_invalid_plan():
+    """Planner failure must not block retrieval; existing query rewrite remains the fallback."""
+    async def run():
+        gateway = RecordingGateway(generate_text="not json")
+        visrag = TrackingVisRAG()
+        service = ChatService(
+            visrag=visrag,
+            vector_store=FixedVectorStore(),
+            model_gateway=gateway,
+            page_image_resolver=None,
+        )
+        request = ChatRequest(
+            question="how does it compare?",
+            paper_ids=["paper-abc"],
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            messages=_two_turn_messages(),
+            enable_agentic_retrieval=True,
+            enable_query_rewrite=True,
+        )
+
+        await service._do_retrieval(request)
+
+        assert len(gateway.generate_calls) == 2
+        assert "retrieval planner" in gateway.generate_calls[0][0]["content"]
+        assert "query optimizer" in gateway.generate_calls[1][0]["content"]
+        assert visrag.queries == ["not json"]
+
+    asyncio.run(run())
+
+
 # ── Query rewriting tests ─────────────────────────────────────────────────────
 
 def test_rewrite_query_is_called_when_flag_set_and_messages_present():
@@ -95,6 +201,7 @@ def test_rewrite_query_is_called_when_flag_set_and_messages_present():
             model="m",
             messages=_two_turn_messages(),
             enable_query_rewrite=True,
+            enable_agentic_retrieval=False,
         )
 
         await service._do_retrieval(request)
@@ -128,6 +235,7 @@ def test_rewrite_query_not_called_when_flag_false():
             model="m",
             messages=_two_turn_messages(),
             enable_query_rewrite=False,
+            enable_agentic_retrieval=False,
         )
 
         await service._do_retrieval(request)
@@ -155,6 +263,7 @@ def test_rewrite_query_not_called_when_fewer_than_two_messages():
             model="m",
             messages=[ChatMessage(role="user", content="hello")],  # only 1 message
             enable_query_rewrite=True,
+            enable_agentic_retrieval=False,
         )
 
         await service._do_retrieval(request)
@@ -185,6 +294,7 @@ def test_rewrite_query_falls_back_to_original_on_error():
             model="m",
             messages=_two_turn_messages(),
             enable_query_rewrite=True,
+            enable_agentic_retrieval=False,
         )
 
         result = await service._rewrite_query(request)
@@ -225,6 +335,7 @@ def test_rewrite_query_used_as_first_embed_retry_still_uses_bare_question():
             model="m",
             messages=_two_turn_messages(),
             enable_query_rewrite=True,
+            enable_agentic_retrieval=False,
         )
 
         evidence, _ = await service._do_retrieval(request)

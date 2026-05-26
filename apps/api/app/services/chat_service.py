@@ -1,3 +1,4 @@
+import json
 import math
 import re
 from collections.abc import AsyncGenerator
@@ -6,9 +7,11 @@ from typing import Any
 from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
 from app.schemas.retrieval import PageEvidence
 from app.services.context_builder import (
+    AGENTIC_RETRIEVAL_SYSTEM_PROMPT,
     PAPERMEMORY_SYSTEM_PROMPT,
     QUERY_REWRITE_SYSTEM_PROMPT,
     RECENT_CONVERSATION_MESSAGE_LIMIT,
+    build_agentic_retrieval_prompt,
     build_conversational_query,
     build_evisrag_prompt as build_context_prompt,
     build_query_rewrite_prompt,
@@ -23,6 +26,8 @@ from app.services.visrag_service import VisRAGService
 CONVERSATION_MODE_LIMIT = "No retrieved paper evidence is available; this response is not paper-grounded."
 NO_SCOPED_EVIDENCE_LIMIT = "Scoped retrieval returned no evidence; no paper citations are available."
 TEXT_ONLY_EVIDENCE_LIMIT = "Text-only evidence context; no page images were included."
+AGENTIC_RETRIEVAL_MAX_QUERIES = 4
+AGENTIC_RETRIEVAL_MAX_QUERY_CHARS = 180
 
 
 class ChatService:
@@ -172,9 +177,10 @@ class ChatService:
         Returns ``(evidence, retrieval_attempted)``.
 
         Query building order:
-        1. If ``enable_query_rewrite`` is set and there are prior messages, ask
-           the LLM to rewrite the question as a standalone retrieval query.
-        2. Otherwise fall back to the conversational concatenation heuristic.
+        1. If ``enable_agentic_retrieval`` is set, ask the LLM for a bounded
+           list of search queries and execute only those search actions.
+        2. If planning fails, fall back to query rewrite or conversational
+           concatenation.
 
         On zero results a second pass runs with the bare question and no score
         threshold to maximise recall for ambiguous follow-up questions.
@@ -182,28 +188,34 @@ class ChatService:
         if not request.paper_ids:
             return [], False
 
-        # Choose retrieval query strategy.
-        if request.enable_query_rewrite and len(request.messages) >= 2:
-            retrieval_query = await self._rewrite_query(request)
-        else:
-            retrieval_query = build_conversational_query(
-                question=request.question,
-                messages=request.messages,
-            )
-
-        query_embedding = await self.visrag.embed_query(retrieval_query)
-
         effective_max_per_paper = request.max_per_paper
         if effective_max_per_paper is None and len(request.paper_ids) > 1:
             effective_max_per_paper = math.ceil(request.top_k / len(request.paper_ids))
 
-        evidence = await self.vector_store.search_pages(
-            embedding=query_embedding.vector,
-            top_k=request.top_k,
-            paper_ids=request.paper_ids,
-            score_threshold=request.score_threshold,
-            max_per_paper=effective_max_per_paper,
+        planned_queries = (
+            await self._plan_retrieval_queries(request)
+            if request.enable_agentic_retrieval
+            else None
         )
+
+        if planned_queries:
+            evidence: list[PageEvidence] = []
+            for retrieval_query in planned_queries:
+                evidence.extend(
+                    await self._search_retrieval_query(
+                        request=request,
+                        retrieval_query=retrieval_query,
+                        max_per_paper=effective_max_per_paper,
+                    )
+                )
+            evidence = self._dedupe_and_rank_evidence(evidence, top_k=request.top_k)
+        else:
+            retrieval_query = await self._fallback_retrieval_query(request)
+            evidence = await self._search_retrieval_query(
+                request=request,
+                retrieval_query=retrieval_query,
+                max_per_paper=effective_max_per_paper,
+            )
 
         # Zero-result retry: always use the bare question here to maximise
         # recall — drop the rewritten/enriched query and the score threshold.
@@ -216,6 +228,106 @@ class ChatService:
             )
 
         return evidence, True
+
+    async def _plan_retrieval_queries(self, request: ChatRequest) -> list[str] | None:
+        """Ask the LLM for bounded retrieval queries and validate the result."""
+        try:
+            prompt = build_agentic_retrieval_prompt(request.question, request.messages)
+            response = await self.model_gateway.generate(
+                messages=[
+                    {"role": "system", "content": AGENTIC_RETRIEVAL_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                model=request.model,
+                base_url=request.base_url,
+                api_key=request.api_key,
+                temperature=0,
+            )
+            return self._parse_planned_queries(response.text)
+        except Exception:
+            return None
+
+    async def _fallback_retrieval_query(self, request: ChatRequest) -> str:
+        if request.enable_query_rewrite and len(request.messages) >= 2:
+            return await self._rewrite_query(request)
+        return build_conversational_query(
+            question=request.question,
+            messages=request.messages,
+        )
+
+    async def _search_retrieval_query(
+        self,
+        request: ChatRequest,
+        retrieval_query: str,
+        max_per_paper: int | None,
+    ) -> list[PageEvidence]:
+        query_embedding = await self.visrag.embed_query(retrieval_query)
+        return await self.vector_store.search_pages(
+            embedding=query_embedding.vector,
+            top_k=request.top_k,
+            paper_ids=request.paper_ids,
+            score_threshold=request.score_threshold,
+            max_per_paper=max_per_paper,
+        )
+
+    @classmethod
+    def _parse_planned_queries(cls, text: str) -> list[str] | None:
+        payload = cls._load_json_object(text)
+        if not isinstance(payload, dict):
+            return None
+        raw_queries = payload.get("queries")
+        if not isinstance(raw_queries, list):
+            return None
+
+        queries: list[str] = []
+        seen: set[str] = set()
+        for raw_item in raw_queries:
+            if isinstance(raw_item, str):
+                raw_query = raw_item
+            elif isinstance(raw_item, dict):
+                raw_query = raw_item.get("query") or raw_item.get("search_query")
+            else:
+                raw_query = None
+
+            if not isinstance(raw_query, str):
+                continue
+            query = " ".join(raw_query.split())[:AGENTIC_RETRIEVAL_MAX_QUERY_CHARS].strip()
+            dedupe_key = query.lower()
+            if query and dedupe_key not in seen:
+                queries.append(query)
+                seen.add(dedupe_key)
+            if len(queries) >= AGENTIC_RETRIEVAL_MAX_QUERIES:
+                break
+
+        return queries or None
+
+    @staticmethod
+    def _load_json_object(text: str) -> Any:
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
+            stripped = re.sub(r"\s*```$", "", stripped)
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", stripped, flags=re.DOTALL)
+            if not match:
+                raise
+            return json.loads(match.group(0))
+
+    @staticmethod
+    def _dedupe_and_rank_evidence(
+        evidence: list[PageEvidence],
+        top_k: int,
+    ) -> list[PageEvidence]:
+        best_by_page: dict[tuple[str, int], PageEvidence] = {}
+        for item in evidence:
+            key = (item.paper_id, item.page_number)
+            previous = best_by_page.get(key)
+            if previous is None or item.score > previous.score:
+                best_by_page[key] = item
+
+        return sorted(best_by_page.values(), key=lambda item: item.score, reverse=True)[:top_k]
 
     async def _rewrite_query(self, request: ChatRequest) -> str:
         """Ask the LLM to rewrite the question as a standalone retrieval query.

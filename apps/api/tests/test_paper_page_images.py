@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings, get_settings
 from app.main import create_app
+from app.routers import papers as papers_router
 from app.schemas.papers import PaperMetadata, PaperStatus
 
 
@@ -65,6 +66,21 @@ def test_get_paper_page_image_rejects_path_traversal_paper_id(tmp_path: Path) ->
     response = client.get("/papers/%2e%2e/pages/1/image")
 
     assert response.status_code == 422
+
+
+def test_list_papers_does_not_initialize_vector_store(tmp_path: Path, monkeypatch) -> None:
+    _write_ready_paper(tmp_path, "paper-list")
+
+    def fail_if_vector_store_is_constructed(*args, **kwargs):
+        raise RuntimeError("GET /papers must not initialize retrieval dependencies.")
+
+    monkeypatch.setattr(papers_router, "VectorStore", fail_if_vector_store_is_constructed)
+    client = _client(tmp_path)
+
+    response = client.get("/papers")
+
+    assert response.status_code == 200
+    assert response.json()["papers"][0]["paper_id"] == "paper-list"
 
 
 def test_delete_paper_removes_files_and_workspace_references(tmp_path: Path) -> None:

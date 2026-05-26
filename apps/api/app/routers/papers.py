@@ -53,14 +53,14 @@ async def upload_paper(
 
 
 @router.get("", response_model=PaperListResponse)
-def list_papers(service: IngestionService = Depends(get_ingestion_service)) -> PaperListResponse:
+def list_papers(service: IngestionService = Depends(get_page_image_service)) -> PaperListResponse:
     return PaperListResponse(papers=service.list_papers())
 
 
 @router.get("/{paper_id}/status")
 def get_paper_status(
     paper_id: str,
-    service: IngestionService = Depends(get_ingestion_service),
+    service: IngestionService = Depends(get_page_image_service),
 ) -> PaperUploadResponse:
     return PaperUploadResponse(paper=service.get_paper(paper_id))
 

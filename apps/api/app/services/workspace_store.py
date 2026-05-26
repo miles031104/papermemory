@@ -103,6 +103,27 @@ class WorkspaceStore:
         self._write_workspace(workspace)
         return updated
 
+    def delete_library(self, library_id: str) -> None:
+        self._validate_id(library_id, "Invalid library id.")
+        workspace = self._load_workspace()
+        self._find_library(workspace, library_id)
+        if len(workspace.libraries) <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last library.")
+
+        self._write_workspace(
+            workspace.model_copy(
+                update={
+                    "libraries": [library for library in workspace.libraries if library.id != library_id],
+                    "conversations": [
+                        conversation
+                        for conversation in workspace.conversations
+                        if conversation.library_id != library_id
+                    ],
+                    "paper_groups": [group for group in workspace.paper_groups if group.library_id != library_id],
+                }
+            )
+        )
+
     def create_conversation(
         self,
         library_id: str,
@@ -144,6 +165,22 @@ class WorkspaceStore:
         workspace.conversations[index] = updated
         self._write_workspace(workspace)
         return updated
+
+    def delete_conversation(self, conversation_id: str) -> None:
+        self._validate_id(conversation_id, "Invalid conversation id.")
+        workspace = self._load_workspace()
+        self._find_conversation(workspace, conversation_id)
+        self._write_workspace(
+            workspace.model_copy(
+                update={
+                    "conversations": [
+                        conversation
+                        for conversation in workspace.conversations
+                        if conversation.id != conversation_id
+                    ]
+                }
+            )
+        )
 
     def create_paper_group(self, library_id: str, request: CreatePaperGroupRequest) -> PaperGroup:
         self._validate_id(library_id, "Invalid library id.")
@@ -210,6 +247,57 @@ class WorkspaceStore:
         )
         self._write_workspace(workspace)
         return updated
+
+    def delete_paper_group(self, group_id: str) -> None:
+        self._validate_id(group_id, "Invalid paper group id.")
+        workspace = self._load_workspace()
+        _, group = self._find_paper_group(workspace, group_id)
+        library_groups = [item for item in workspace.paper_groups if item.library_id == group.library_id]
+        if len(library_groups) <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last paper group in a library.")
+        if group.name == DEFAULT_GROUP_NAME:
+            raise HTTPException(status_code=400, detail="Cannot delete the default ungrouped uploads group.")
+
+        now = self._now()
+        library_index, library = self._find_library(workspace, group.library_id)
+        target_group = next(
+            (
+                item
+                for item in workspace.paper_groups
+                if item.library_id == group.library_id and item.name == DEFAULT_GROUP_NAME
+            ),
+            None,
+        )
+        if target_group is None:
+            target_group = self._default_group_for_library(
+                library=library,
+                existing_group_ids={item.id for item in workspace.paper_groups},
+                paper_ids=group.paper_ids,
+                now=now,
+            )
+            next_groups = [target_group, *[item for item in workspace.paper_groups if item.id != group_id]]
+        else:
+            next_groups = [
+                item.model_copy(
+                    update={
+                        "paper_ids": self._dedupe([*item.paper_ids, *group.paper_ids]),
+                        "updated_at": now,
+                    }
+                )
+                if item.id == target_group.id
+                else item
+                for item in workspace.paper_groups
+                if item.id != group_id
+            ]
+
+        workspace.libraries[library_index] = library.model_copy(
+            update={
+                "group_ids": self._dedupe([item.id for item in next_groups if item.library_id == library.id]),
+                "updated_at": now,
+            }
+        )
+        workspace.paper_groups = next_groups
+        self._write_workspace(workspace)
 
     def move_paper_to_group(self, group_id: str, paper_id: str) -> PaperGroup:
         self._validate_id(group_id, "Invalid paper group id.")

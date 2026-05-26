@@ -227,8 +227,11 @@ def test_uploaded_library_scope_can_chat_through_fake_byok_gateway(tmp_path: Pat
             assert "rendered_pages" not in body_text
             assert str(tmp_path) not in body_text
 
-            assert len(gateway.calls) == 1
-            recorded = gateway.calls[0]
+            assert len(gateway.calls) == 2
+            planner_call = gateway.calls[0]
+            assert "retrieval planner" in planner_call["messages"][0]["content"]
+
+            recorded = gateway.calls[1]
             assert recorded["model"] == "phase1c-request-model"
             assert recorded["base_url"] == "https://models.example.test/v1"
             assert recorded["api_key"] == "phase1c-secret-key"

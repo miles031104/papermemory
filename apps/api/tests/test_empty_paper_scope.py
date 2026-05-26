@@ -263,8 +263,9 @@ def test_chat_scoped_zero_evidence_returns_partial_metadata() -> None:
     assert body["limits"] == [
         "Scoped retrieval returned no evidence; no paper citations are available."
     ]
-    # Zero-result retry: first pass with conversational query + second pass with
-    # bare question. Both return empty evidence so the model sees no grounding.
+    # Zero-result retry: planner query + bare question. Both return empty
+    # evidence so the final answer model sees no grounding.
     assert visrag.embed_calls == 2
     assert vector_store.search_calls == 2
-    assert model_gateway.generate_calls == 1
+    # One planner call plus one final answer call.
+    assert model_gateway.generate_calls == 2

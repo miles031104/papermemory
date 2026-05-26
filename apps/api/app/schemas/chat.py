@@ -30,6 +30,7 @@ class ChatRequest(BaseModel):
     enable_image_context: bool | None = None
     max_evidence_images: int | None = Field(default=None, ge=0, le=10)
     enable_query_rewrite: bool = False
+    enable_agentic_retrieval: bool = True
 
 
 class ChatStats(BaseModel):

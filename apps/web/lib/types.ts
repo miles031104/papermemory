@@ -184,6 +184,7 @@ export interface ApiChatRequest {
   enable_image_context?: boolean;
   max_evidence_images?: number;
   enable_query_rewrite?: boolean;
+  enable_agentic_retrieval?: boolean;
   messages?: Array<{
     role: "system" | "user" | "assistant";
     content: string;
@@ -265,4 +266,9 @@ export interface ApiChatStreamDone {
   note: string | null;
   stats: Record<string, unknown>;
   summary_message?: ApiChatSummaryMessage | null;
+}
+
+export interface ApiChatStreamError {
+  status: number;
+  detail: string;
 }

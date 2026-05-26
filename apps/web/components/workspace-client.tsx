@@ -72,6 +72,8 @@ const initialInstallSettings: InstallSettings = {
 
 const MODEL_SETTINGS_STORAGE_KEY = "papermemory.modelSettings.v1";
 const INSTALL_SETTINGS_STORAGE_KEY = "papermemory.installSettings.v1";
+const DEFAULT_GROUP_NAME = "Ungrouped uploads";
+const DEFAULT_GROUP_DESCRIPTION = "Default local-first group for papers that have not been organized yet.";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown PaperMemory API error.";
@@ -494,6 +496,157 @@ export function WorkspaceClient() {
     setActiveGroupId(group.id);
   };
 
+  const deleteLibrary = async (libraryId: string) => {
+    const nextLibraries = libraries.filter((library) => library.id !== libraryId);
+    if (nextLibraries.length === 0) {
+      throw new Error("Keep at least one library in the workspace.");
+    }
+
+    const nextActiveLibrary = nextLibraries[0];
+    if (isWorkspacePersisted) {
+      await paperMemoryApi.deleteLibrary(libraryId, installSettings.apiBaseUrl);
+      await loadWorkspace({ paperId: "", libraryId: nextActiveLibrary.id });
+      return;
+    }
+
+    const nextGroups = paperGroups.filter((group) => group.libraryId !== libraryId);
+    let nextConversations = conversations.filter((conversation) => conversation.libraryId !== libraryId);
+    let nextConversation = nextConversations.find(
+      (conversation) => conversation.libraryId === nextActiveLibrary.id,
+    );
+    if (!nextConversation) {
+      nextConversation = makeConversation(nextActiveLibrary.id, "Research chat");
+      nextConversations = [nextConversation, ...nextConversations];
+    }
+
+    setLibraries(nextLibraries);
+    setPaperGroups(nextGroups);
+    setConversations(nextConversations);
+    setActiveLibraryId(nextActiveLibrary.id);
+    setActiveGroupId(nextGroups.find((group) => group.libraryId === nextActiveLibrary.id)?.id ?? "");
+    setActiveConversationId(nextConversation.id);
+  };
+
+  const deleteGroup = async (groupId: string) => {
+    const group = paperGroups.find((item) => item.id === groupId);
+    if (!group) {
+      return;
+    }
+    const libraryGroups = paperGroups.filter((item) => item.libraryId === group.libraryId);
+    if (libraryGroups.length <= 1) {
+      throw new Error("Keep at least one group in this library.");
+    }
+    if (group.name === DEFAULT_GROUP_NAME) {
+      throw new Error("The default ungrouped uploads group stays as the fallback for moved papers.");
+    }
+
+    const fallbackGroup = libraryGroups.find((item) => item.name === DEFAULT_GROUP_NAME);
+    if (isWorkspacePersisted) {
+      await paperMemoryApi.deletePaperGroup(groupId, installSettings.apiBaseUrl);
+      await loadWorkspace({ paperId: "", libraryId: group.libraryId, groupId: fallbackGroup?.id });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const fallbackGroupId = fallbackGroup?.id ?? `group-ungrouped-${Date.now()}`;
+    const createdFallbackGroup: PaperGroup | null = fallbackGroup
+      ? null
+      : {
+          id: fallbackGroupId,
+          libraryId: group.libraryId,
+          name: DEFAULT_GROUP_NAME,
+          description: DEFAULT_GROUP_DESCRIPTION,
+          paperIds: group.paperIds,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+    setPaperGroups((currentGroups) => {
+      const withoutDeleted = currentGroups.filter((item) => item.id !== group.id);
+      if (createdFallbackGroup) {
+        return [createdFallbackGroup, ...withoutDeleted];
+      }
+      return withoutDeleted.map((item) =>
+        item.id === fallbackGroupId
+          ? {
+              ...item,
+              paperIds: [...group.paperIds, ...item.paperIds.filter((paperId) => !group.paperIds.includes(paperId))],
+              updatedAt: now,
+            }
+          : item,
+      );
+    });
+    setLibraries((currentLibraries) =>
+      currentLibraries.map((library) =>
+        library.id === group.libraryId
+          ? {
+              ...library,
+              groupIds: [
+                fallbackGroupId,
+                ...library.groupIds.filter((item) => item !== group.id && item !== fallbackGroupId),
+              ],
+              updatedAt: now,
+            }
+          : library,
+      ),
+    );
+    setActiveLibraryId(group.libraryId);
+    setActiveGroupId(fallbackGroupId);
+  };
+
+  const deleteConversation = async (conversationId: string) => {
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) {
+      return;
+    }
+
+    const remainingConversations = conversations.filter((item) => item.id !== conversationId);
+    const sameLibraryConversations = remainingConversations.filter(
+      (item) => item.libraryId === conversation.libraryId,
+    );
+    const nextActiveConversation = sameLibraryConversations[0];
+    const deletingActiveConversation = activeConversationId === conversationId;
+
+    if (isWorkspacePersisted) {
+      await paperMemoryApi.deleteConversation(conversationId, installSettings.apiBaseUrl);
+      if (nextActiveConversation) {
+        setConversations(remainingConversations);
+        if (deletingActiveConversation) {
+          setActiveConversationId(nextActiveConversation.id);
+        }
+        return;
+      }
+
+      const created = await paperMemoryApi.createConversation(
+        conversation.libraryId,
+        {
+          title: "Research chat",
+          description: "A local chat scoped to this paper database.",
+          messages: [],
+        },
+        installSettings.apiBaseUrl,
+      );
+      const replacement = mapApiConversation(created);
+      setConversations([replacement, ...remainingConversations]);
+      setActiveLibraryId(conversation.libraryId);
+      setActiveConversationId(replacement.id);
+      return;
+    }
+
+    if (nextActiveConversation) {
+      setConversations(remainingConversations);
+      if (deletingActiveConversation) {
+        setActiveConversationId(nextActiveConversation.id);
+      }
+      return;
+    }
+
+    const replacement = makeConversation(conversation.libraryId, "Research chat");
+    setConversations([replacement, ...remainingConversations]);
+    setActiveLibraryId(conversation.libraryId);
+    setActiveConversationId(replacement.id);
+  };
+
   const selectLibrary = async (libraryId: string) => {
     const existingConversation = conversations.find(
       (conversation) => conversation.libraryId === libraryId,
@@ -812,6 +965,9 @@ export function WorkspaceClient() {
           onCreateConversation={handleCreateConversation}
           onCreateLibrary={createLibrary}
           onCreateGroup={createGroup}
+          onDeleteLibrary={deleteLibrary}
+          onDeleteGroup={deleteGroup}
+          onDeleteConversation={deleteConversation}
         />
 
         <div className="workspace-content">

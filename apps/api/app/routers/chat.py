@@ -42,16 +42,23 @@ async def _sse_stream(service: ChatService, request: ChatRequest):
     - ``done``      — generation complete; includes answer, evidence, stats,
                       and optional summary_message
     """
-    async for chunk in service.answer_stream(request):
-        if isinstance(chunk, str):
-            payload = json.dumps({"type": "delta", "content": chunk})
-        elif "evidence_ready" in chunk:
-            payload = json.dumps(
-                {"type": "evidence", "evidence": chunk["evidence_ready"], "note": chunk.get("note")},
-                default=_json_default,
-            )
-        else:
-            payload = json.dumps({"type": "done", **chunk}, default=_json_default)
+    try:
+        async for chunk in service.answer_stream(request):
+            if isinstance(chunk, str):
+                payload = json.dumps({"type": "delta", "content": chunk})
+            elif "evidence_ready" in chunk:
+                payload = json.dumps(
+                    {"type": "evidence", "evidence": chunk["evidence_ready"], "note": chunk.get("note")},
+                    default=_json_default,
+                )
+            else:
+                payload = json.dumps({"type": "done", **chunk}, default=_json_default)
+            yield f"data: {payload}\n\n"
+    except HTTPException as exc:
+        payload = json.dumps({"type": "error", "status": exc.status_code, "detail": exc.detail})
+        yield f"data: {payload}\n\n"
+    except Exception:
+        payload = json.dumps({"type": "error", "status": 500, "detail": "Chat stream failed unexpectedly."})
         yield f"data: {payload}\n\n"
 
 

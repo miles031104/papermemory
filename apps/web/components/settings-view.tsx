@@ -33,8 +33,8 @@ export function SettingsView({
         </div>
         <SetupWizard
           settings={installSettings}
+          modelSettings={modelSettings}
           onChange={onInstallSettingsChange}
-          onApplyModelSettings={onModelSettingsChange}
         />
       </div>
     </div>

@@ -46,6 +46,14 @@ def update_library(
     return store.update_library(library_id=library_id, request=request)
 
 
+@router.delete("/libraries/{library_id}", status_code=204)
+def delete_library(
+    library_id: str = Path(pattern=WORKSPACE_ID_PATTERN),
+    store: WorkspaceStore = Depends(get_workspace_store),
+) -> None:
+    store.delete_library(library_id=library_id)
+
+
 @router.post("/libraries/{library_id}/conversations", response_model=ResearchConversation, status_code=201)
 def create_conversation(
     request: CreateConversationRequest,
@@ -64,6 +72,14 @@ def update_conversation(
     return store.update_conversation(conversation_id=conversation_id, request=request)
 
 
+@router.delete("/conversations/{conversation_id}", status_code=204)
+def delete_conversation(
+    conversation_id: str = Path(pattern=WORKSPACE_ID_PATTERN),
+    store: WorkspaceStore = Depends(get_workspace_store),
+) -> None:
+    store.delete_conversation(conversation_id=conversation_id)
+
+
 @router.post("/libraries/{library_id}/paper-groups", response_model=PaperGroup, status_code=201)
 def create_paper_group(
     request: CreatePaperGroupRequest,
@@ -80,6 +96,14 @@ def update_paper_group(
     store: WorkspaceStore = Depends(get_workspace_store),
 ) -> PaperGroup:
     return store.update_paper_group(group_id=group_id, request=request)
+
+
+@router.delete("/paper-groups/{group_id}", status_code=204)
+def delete_paper_group(
+    group_id: str = Path(pattern=WORKSPACE_ID_PATTERN),
+    store: WorkspaceStore = Depends(get_workspace_store),
+) -> None:
+    store.delete_paper_group(group_id=group_id)
 
 
 @router.post("/paper-groups/{group_id}/papers/{paper_id}", response_model=PaperGroup)

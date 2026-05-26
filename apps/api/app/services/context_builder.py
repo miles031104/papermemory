@@ -52,6 +52,15 @@ QUERY_REWRITE_SYSTEM_PROMPT = (
 )
 
 
+AGENTIC_RETRIEVAL_SYSTEM_PROMPT = (
+    "You are PaperMemory's bounded retrieval planner. "
+    "Choose only the paper sections needed to answer the user's question. "
+    "Return JSON only, with a top-level `queries` array. "
+    "Each item must contain `query` and may contain `target_sections`. "
+    "Use at most 4 concise queries. Do not answer the user."
+)
+
+
 def build_query_rewrite_prompt(question: str, messages: list[ChatMessage]) -> str:
     """Build a prompt asking the LLM to produce a standalone retrieval query.
 
@@ -62,6 +71,36 @@ def build_query_rewrite_prompt(question: str, messages: list[ChatMessage]) -> st
     for msg in messages[-(QUERY_CONTEXT_TURNS * 2):]:
         lines.append(f"{msg.role}: {msg.content.strip()}")
     lines.append(f"user: {question}")
+    return "\n".join(lines)
+
+
+def build_agentic_retrieval_prompt(question: str, messages: list[ChatMessage]) -> str:
+    """Build a bounded retrieval-planning prompt for the LLM.
+
+    The output is intentionally constrained to search query strings.  The
+    backend treats this as an untrusted hint and validates every query before
+    executing any retrieval action.
+    """
+    lines = [
+        "Plan retrieval for a local paper library.",
+        "Allowed action: search page embeddings with short natural-language queries.",
+        "Do not include final answers, chain-of-thought, citations, or tool calls.",
+        "Return exactly this JSON shape:",
+        '{"queries":[{"query":"...", "target_sections":["method"]}]}',
+        "",
+        "Recent conversation:",
+    ]
+    for msg in messages[-(QUERY_CONTEXT_TURNS * 2):]:
+        if msg.role in ("user", "assistant") and msg.content.strip():
+            lines.append(f"{msg.role}: {msg.content.strip()}")
+    lines.extend(
+        [
+            "",
+            f"Current question: {question}",
+            "",
+            "Section hints may include: abstract, introduction, related work, method, algorithm, experiments, results, ablation, limitations, conclusion.",
+        ]
+    )
     return "\n".join(lines)
 
 

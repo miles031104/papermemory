@@ -5,6 +5,7 @@ interface PaperUploadPanelProps {
   selectedFile: File | null;
   fileInputKey: number;
   isUploading: boolean;
+  embedded?: boolean;
   message?: string | null;
   error?: string | null;
   onTitleChange: (title: string) => void;
@@ -17,6 +18,7 @@ export function PaperUploadPanel({
   selectedFile,
   fileInputKey,
   isUploading,
+  embedded = false,
   message,
   error,
   onTitleChange,
@@ -27,16 +29,16 @@ export function PaperUploadPanel({
     onFileChange(event.target.files?.[0] ?? null);
   };
 
-  return (
-    <section className="panel" aria-labelledby="upload-title">
-      <div className="panel__header">
+  const content = (
+    <>
+      <div className={embedded ? "upload-panel__header" : "panel__header"}>
         <div>
           <h2 id="upload-title">Upload paper</h2>
           <p>Ingest a PDF into local storage, page images, and vector indexes.</p>
         </div>
       </div>
       <form
-        className="panel__body"
+        className={embedded ? "upload-panel__body" : "panel__body"}
         aria-label="Upload a paper"
         onSubmit={(event) => {
           event.preventDefault();
@@ -89,6 +91,20 @@ export function PaperUploadPanel({
           </button>
         </div>
       </form>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section className="upload-panel upload-panel--embedded" aria-labelledby="upload-title">
+        {content}
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel" aria-labelledby="upload-title">
+      {content}
     </section>
   );
 }
