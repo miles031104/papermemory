@@ -1016,6 +1016,17 @@ h3 {
   background: rgba(255, 255, 255, 0.048);
 }
 
+.button--danger {
+  border-color: rgba(255, 143, 157, 0.34);
+  background: var(--danger-soft);
+  color: #ffc4ca;
+}
+
+.button--danger:hover:not(:disabled) {
+  border-color: rgba(255, 143, 157, 0.52);
+  background: rgba(255, 143, 157, 0.2);
+}
+
 .icon-button {
   width: 30px;
   height: 30px;
@@ -1131,6 +1142,10 @@ h3 {
   background: rgba(255, 255, 255, 0.065);
   color: var(--text);
   padding: 8px 10px;
+}
+
+.paper-delete-button {
+  justify-self: start;
 }
 
 .scope-panel .panel__body {

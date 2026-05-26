@@ -7,6 +7,7 @@ interface PaperLibraryProps {
   groups?: PaperGroup[];
   activeGroupId?: string;
   onMovePaper?: (paperId: string, groupId: string) => Promise<void>;
+  onDeletePaper?: (paperId: string) => Promise<void>;
 }
 
 function PaperLibraryBody({
@@ -14,11 +15,13 @@ function PaperLibraryBody({
   groups = [],
   activeGroupId = "",
   onMovePaper,
+  onDeletePaper,
 }: {
   papers: PaperSummary[];
   groups?: PaperGroup[];
   activeGroupId?: string;
   onMovePaper?: (paperId: string, groupId: string) => Promise<void>;
+  onDeletePaper?: (paperId: string) => Promise<void>;
 }) {
   return (
     <>
@@ -59,6 +62,17 @@ function PaperLibraryBody({
                 </select>
               </label>
             ) : null}
+            {onDeletePaper ? (
+              <button
+                className="button button--danger paper-delete-button"
+                type="button"
+                onClick={() => {
+                  void onDeletePaper(paper.id);
+                }}
+              >
+                Delete
+              </button>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -72,6 +86,7 @@ export function PaperLibrary({
   groups,
   activeGroupId,
   onMovePaper,
+  onDeletePaper,
 }: PaperLibraryProps) {
   if (embedded) {
     return (
@@ -80,6 +95,7 @@ export function PaperLibrary({
         groups={groups}
         activeGroupId={activeGroupId}
         onMovePaper={onMovePaper}
+        onDeletePaper={onDeletePaper}
       />
     );
   }
@@ -98,6 +114,7 @@ export function PaperLibrary({
           groups={groups}
           activeGroupId={activeGroupId}
           onMovePaper={onMovePaper}
+          onDeletePaper={onDeletePaper}
         />
       </div>
     </section>

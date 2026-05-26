@@ -242,6 +242,32 @@ class WorkspaceStore:
         self._write_workspace(workspace)
         return updated_target
 
+    def remove_paper(self, paper_id: str) -> None:
+        workspace = self._load_workspace()
+        now = self._now()
+        changed = False
+
+        next_libraries: list[ResearchLibrary] = []
+        for library in workspace.libraries:
+            next_paper_ids = [item for item in library.paper_ids if item != paper_id]
+            if next_paper_ids != library.paper_ids:
+                library = library.model_copy(update={"paper_ids": next_paper_ids, "updated_at": now})
+                changed = True
+            next_libraries.append(library)
+
+        next_groups: list[PaperGroup] = []
+        for group in workspace.paper_groups:
+            next_paper_ids = [item for item in group.paper_ids if item != paper_id]
+            if next_paper_ids != group.paper_ids:
+                group = group.model_copy(update={"paper_ids": next_paper_ids, "updated_at": now})
+                changed = True
+            next_groups.append(group)
+
+        if changed:
+            self._write_workspace(
+                workspace.model_copy(update={"libraries": next_libraries, "paper_groups": next_groups})
+            )
+
     def _load_workspace(self) -> WorkspaceResponse:
         if not self._defaults_initialized:
             self._ensure_defaults()

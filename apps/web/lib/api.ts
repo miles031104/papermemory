@@ -44,6 +44,27 @@ async function requestJson<TResponse>(
   return response.json() as Promise<TResponse>;
 }
 
+async function requestVoid(
+  path: string,
+  { body, headers, baseUrl, ...options }: RequestOptions = {}
+): Promise<void> {
+  const isFormBody = body instanceof FormData;
+  const apiBaseUrl = baseUrl?.trim() || defaultApiBaseUrl;
+  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}${path}`, {
+    ...options,
+    headers: {
+      ...(isFormBody ? {} : { "Content-Type": "application/json" }),
+      ...headers
+    },
+    body: isFormBody || typeof body === "string" ? body : body === undefined ? undefined : JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`PaperMemory API ${response.status}: ${detail || response.statusText}`);
+  }
+}
+
 export const paperMemoryApi = {
   health(baseUrl?: string) {
     return requestJson<ApiHealthResponse>("/health", { baseUrl });
@@ -143,6 +164,13 @@ export const paperMemoryApi = {
     return requestJson<ApiPaperUploadResponse>("/papers/upload", {
       method: "POST",
       body: formData,
+      baseUrl
+    });
+  },
+
+  deletePaper(paperId: string, baseUrl?: string) {
+    return requestVoid(`/papers/${paperId}`, {
+      method: "DELETE",
       baseUrl
     });
   },

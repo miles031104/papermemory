@@ -111,6 +111,12 @@ class IngestionService:
             raise HTTPException(status_code=404, detail="Paper not found.")
         return PaperMetadata.model_validate_json(metadata_path.read_text(encoding="utf-8"))
 
+    def delete_paper(self, paper_id: str) -> None:
+        if not is_safe_paper_id(paper_id):
+            raise HTTPException(status_code=400, detail="Invalid paper id.")
+        self.get_paper(paper_id)
+        self._cleanup_paper_files(paper_id)
+
     def get_page_image_path(self, paper_id: str, page_number: int) -> Path:
         if not is_safe_paper_id(paper_id):
             raise HTTPException(status_code=400, detail="Invalid paper id.")

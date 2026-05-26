@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, Path, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Path, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.config import Settings, get_settings
@@ -9,6 +9,7 @@ from app.services.ingestion_service import IngestionService
 from app.services.pdf_renderer import PdfRenderer
 from app.services.vector_store import VectorStore
 from app.services.visrag_service import VisRAGService
+from app.services.workspace_store import WorkspaceStore
 
 router = APIRouter()
 
@@ -37,6 +38,10 @@ def get_page_image_service(settings: Settings = Depends(get_settings)) -> Ingest
     )
 
 
+def get_workspace_store(settings: Settings = Depends(get_settings)) -> WorkspaceStore:
+    return WorkspaceStore(paths=StoragePaths(settings))
+
+
 @router.post("/upload", response_model=PaperUploadResponse, status_code=201)
 async def upload_paper(
     file: UploadFile = File(...),
@@ -58,6 +63,17 @@ def get_paper_status(
     service: IngestionService = Depends(get_ingestion_service),
 ) -> PaperUploadResponse:
     return PaperUploadResponse(paper=service.get_paper(paper_id))
+
+
+@router.delete("/{paper_id}", status_code=204)
+def delete_paper(
+    paper_id: str,
+    service: IngestionService = Depends(get_page_image_service),
+    workspace_store: WorkspaceStore = Depends(get_workspace_store),
+) -> Response:
+    service.delete_paper(paper_id)
+    workspace_store.remove_paper(paper_id)
+    return Response(status_code=204)
 
 
 @router.get("/{paper_id}/pages/{page_number}/image")

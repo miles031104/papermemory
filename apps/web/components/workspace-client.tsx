@@ -735,6 +735,38 @@ export function WorkspaceClient() {
     setActiveGroupId(updatedGroup.id);
   };
 
+  const deletePaper = async (paperId: string) => {
+    const paper = papers.find((item) => item.id === paperId);
+    const confirmed = window.confirm(
+      `Delete "${paper?.title ?? "this paper"}" from the local library? This removes its PDF, rendered pages, and group references.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    if (isWorkspacePersisted) {
+      await paperMemoryApi.deletePaper(paperId, installSettings.apiBaseUrl);
+      await loadWorkspace();
+      return;
+    }
+
+    setPapers((currentPapers) => currentPapers.filter((item) => item.id !== paperId));
+    setLibraries((currentLibraries) =>
+      currentLibraries.map((library) => ({
+        ...library,
+        paperIds: library.paperIds.filter((id) => id !== paperId),
+        updatedAt: new Date().toISOString(),
+      })),
+    );
+    setPaperGroups((currentGroups) =>
+      currentGroups.map((group) => ({
+        ...group,
+        paperIds: group.paperIds.filter((id) => id !== paperId),
+        updatedAt: new Date().toISOString(),
+      })),
+    );
+  };
+
   const handleSelectLibrary = (libraryId: string) => {
     const library = libraries.find((item) => item.id === libraryId);
     void selectLibrary(libraryId).catch((error) => {
@@ -826,6 +858,7 @@ export function WorkspaceClient() {
               onFileChange={setSelectedFile}
               onUpload={handleUpload}
               onMovePaper={movePaperToGroup}
+              onDeletePaper={deletePaper}
             />
           ) : null}
           {activeView === "settings" ? (

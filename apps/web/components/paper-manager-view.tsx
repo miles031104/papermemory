@@ -16,6 +16,7 @@ interface PaperManagerViewProps {
   onFileChange: (file: File | null) => void;
   onUpload: () => void;
   onMovePaper: (paperId: string, groupId: string) => Promise<void>;
+  onDeletePaper: (paperId: string) => Promise<void>;
 }
 
 export function PaperManagerView({
@@ -32,6 +33,7 @@ export function PaperManagerView({
   onFileChange,
   onUpload,
   onMovePaper,
+  onDeletePaper,
 }: PaperManagerViewProps) {
   return (
     <section className="workspace-grid workspace-grid--papers" aria-label="Paper manager">
@@ -63,6 +65,7 @@ export function PaperManagerView({
           groups={groups}
           activeGroupId={activeGroup?.id ?? ""}
           onMovePaper={onMovePaper}
+          onDeletePaper={onDeletePaper}
         />
       </aside>
     </section>
