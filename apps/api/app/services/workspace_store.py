@@ -25,6 +25,8 @@ from app.schemas.workspace import (
 DEFAULT_LIBRARY_ID = "library-inbox"
 DEFAULT_GROUP_ID = "group-inbox"
 DEFAULT_CONVERSATION_ID = "conversation-welcome"
+DEFAULT_GROUP_NAME = "Ungrouped uploads"
+DEFAULT_GROUP_DESCRIPTION = "Default local-first group for papers that have not been organized yet."
 
 
 class WorkspaceStore:
@@ -206,7 +208,7 @@ class WorkspaceStore:
         )
         if not workspace.libraries:
             return self._repair_empty_workspace()
-        return workspace
+        return self._repair_workspace_integrity(workspace)
 
     def _ensure_defaults(self) -> None:
         now = self._now()
@@ -225,8 +227,8 @@ class WorkspaceStore:
         group = PaperGroup(
             id=DEFAULT_GROUP_ID,
             library_id=default_library_id,
-            name="Ungrouped uploads",
-            description="Default local-first group for papers that have not been organized yet.",
+            name=DEFAULT_GROUP_NAME,
+            description=DEFAULT_GROUP_DESCRIPTION,
             paper_ids=existing_paper_ids,
             created_at=now,
             updated_at=now,
@@ -289,8 +291,8 @@ class WorkspaceStore:
                 PaperGroup(
                     id=DEFAULT_GROUP_ID,
                     library_id=DEFAULT_LIBRARY_ID,
-                    name="Ungrouped uploads",
-                    description="Default local-first group for papers that have not been organized yet.",
+                    name=DEFAULT_GROUP_NAME,
+                    description=DEFAULT_GROUP_DESCRIPTION,
                     paper_ids=existing_paper_ids,
                     created_at=now,
                     updated_at=now,
@@ -299,6 +301,95 @@ class WorkspaceStore:
         )
         self._write_workspace(workspace)
         return workspace
+
+    def _repair_workspace_integrity(self, workspace: WorkspaceResponse) -> WorkspaceResponse:
+        now = self._now()
+        changed = False
+        repaired_groups: list[PaperGroup] = []
+
+        libraries_by_id = {library.id: library for library in workspace.libraries}
+        library_group_ids: dict[str, list[str]] = {library.id: [] for library in workspace.libraries}
+        assigned_papers_by_library: dict[str, set[str]] = {library.id: set() for library in workspace.libraries}
+
+        for group in workspace.paper_groups:
+            library = libraries_by_id.get(group.library_id)
+            if library is None:
+                changed = True
+                continue
+
+            library_paper_ids = set(library.paper_ids)
+            assigned_paper_ids = assigned_papers_by_library[group.library_id]
+            repaired_paper_ids: list[str] = []
+            for paper_id in self._dedupe(group.paper_ids):
+                if paper_id not in library_paper_ids or paper_id in assigned_paper_ids:
+                    changed = True
+                    continue
+                repaired_paper_ids.append(paper_id)
+                assigned_paper_ids.add(paper_id)
+
+            if repaired_paper_ids != group.paper_ids:
+                group = group.model_copy(update={"paper_ids": repaired_paper_ids, "updated_at": now})
+            repaired_groups.append(group)
+            library_group_ids[group.library_id].append(group.id)
+
+        for library in workspace.libraries:
+            ungrouped_paper_ids = [
+                paper_id for paper_id in library.paper_ids if paper_id not in assigned_papers_by_library[library.id]
+            ]
+            if not ungrouped_paper_ids:
+                continue
+
+            default_group = self._default_group_for_library(
+                library=library,
+                existing_group_ids={group.id for group in repaired_groups},
+                paper_ids=ungrouped_paper_ids,
+                now=now,
+            )
+            repaired_groups.append(default_group)
+            library_group_ids[library.id].append(default_group.id)
+            assigned_papers_by_library[library.id].update(ungrouped_paper_ids)
+            changed = True
+
+        repaired_libraries: list[ResearchLibrary] = []
+        for library in workspace.libraries:
+            repaired_group_ids = self._dedupe(
+                [
+                    group_id
+                    for group_id in [*library.group_ids, *library_group_ids[library.id]]
+                    if group_id in library_group_ids[library.id]
+                ]
+            )
+            if repaired_group_ids != library.group_ids:
+                library = library.model_copy(update={"group_ids": repaired_group_ids, "updated_at": now})
+                changed = True
+            repaired_libraries.append(library)
+
+        if not changed:
+            return workspace
+
+        repaired = workspace.model_copy(update={"libraries": repaired_libraries, "paper_groups": repaired_groups})
+        self._write_workspace(repaired)
+        return repaired
+
+    def _default_group_for_library(
+        self,
+        library: ResearchLibrary,
+        existing_group_ids: set[str],
+        paper_ids: list[str],
+        now: datetime,
+    ) -> PaperGroup:
+        group_id = f"group-{library.id}"
+        if group_id in existing_group_ids:
+            group_id = self._new_id("group")
+        return PaperGroup(
+            id=group_id,
+            library_id=library.id,
+            name=DEFAULT_GROUP_NAME,
+            description=DEFAULT_GROUP_DESCRIPTION,
+            paper_ids=paper_ids,
+            created_at=now,
+            updated_at=now,
+        )
 
     def _write_workspace(self, workspace: WorkspaceResponse) -> None:
         self._atomic_write_json(

@@ -250,3 +250,95 @@ def test_ensure_defaults_repairs_missing_paper_groups_without_unreferenced_group
     assert body["libraries"][0]["name"] == "Preserve me"
     assert body["libraries"][0]["group_ids"] == []
     assert body["paper_groups"] == []
+
+
+def test_workspace_repair_assigns_library_papers_to_default_group(tmp_path: Path) -> None:
+    _write_ready_paper(tmp_path, "paper-orphan")
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True)
+    now = datetime.now(UTC).isoformat()
+    (workspace_dir / "libraries.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "library-custom",
+                    "name": "Custom",
+                    "description": "",
+                    "paper_ids": ["paper-orphan"],
+                    "group_ids": [],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (workspace_dir / "conversations.json").write_text("[]", encoding="utf-8")
+    (workspace_dir / "paper_groups.json").write_text("[]", encoding="utf-8")
+
+    client = _client(tmp_path)
+    body = client.get("/workspace").json()
+
+    library = body["libraries"][0]
+    assert library["id"] == "library-custom"
+    assert len(body["paper_groups"]) == 1
+    group = body["paper_groups"][0]
+    assert group["library_id"] == "library-custom"
+    assert group["name"] == "Ungrouped uploads"
+    assert group["paper_ids"] == ["paper-orphan"]
+    assert library["group_ids"] == [group["id"]]
+
+
+def test_workspace_repair_removes_duplicate_group_membership_within_library(tmp_path: Path) -> None:
+    _write_ready_paper(tmp_path, "paper-shared")
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True)
+    now = datetime.now(UTC).isoformat()
+    (workspace_dir / "libraries.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "library-custom",
+                    "name": "Custom",
+                    "description": "",
+                    "paper_ids": ["paper-shared"],
+                    "group_ids": ["group-a", "group-b"],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (workspace_dir / "conversations.json").write_text("[]", encoding="utf-8")
+    (workspace_dir / "paper_groups.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "group-a",
+                    "library_id": "library-custom",
+                    "name": "A",
+                    "description": "",
+                    "paper_ids": ["paper-shared"],
+                    "created_at": now,
+                    "updated_at": now,
+                },
+                {
+                    "id": "group-b",
+                    "library_id": "library-custom",
+                    "name": "B",
+                    "description": "",
+                    "paper_ids": ["paper-shared"],
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    client = _client(tmp_path)
+    groups = client.get("/workspace").json()["paper_groups"]
+
+    assert next(group for group in groups if group["id"] == "group-a")["paper_ids"] == ["paper-shared"]
+    assert next(group for group in groups if group["id"] == "group-b")["paper_ids"] == []
