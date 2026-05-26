@@ -1,4 +1,8 @@
-import { useEffect, useRef } from "react";
+"use client";
+
+import { useCallback, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import type { ChatMessage } from "@/lib/types";
 
@@ -16,6 +20,15 @@ interface ChatPanelProps {
   onSearchEvidence: () => void;
 }
 
+function scrollToEvidence(paperId: string, page: number) {
+  const id = `evidence-${paperId}-${page}`;
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  el.classList.add("evidence-item--highlight");
+  setTimeout(() => el.classList.remove("evidence-item--highlight"), 1500);
+}
+
 export function ChatPanel({
   messages,
   question,
@@ -27,12 +40,11 @@ export function ChatPanel({
   onQuestionChange,
   onSubmit,
   onReset,
-  onSearchEvidence
+  onSearchEvidence,
 }: ChatPanelProps) {
   const canSubmit = question.trim().length > 0 && !isSubmitting;
   const listRef = useRef<HTMLOListElement>(null);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     const list = listRef.current;
     if (list) {
@@ -40,12 +52,15 @@ export function ChatPanel({
     }
   }, [messages]);
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-      event.preventDefault();
-      if (canSubmit) onSubmit();
-    }
-  };
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        if (canSubmit) onSubmit();
+      }
+    },
+    [canSubmit, onSubmit],
+  );
 
   return (
     <section className="panel chat-panel" aria-labelledby="chat-title">
@@ -68,16 +83,30 @@ export function ChatPanel({
                 <span className="message__avatar" aria-hidden="true">PM</span>
               ) : null}
               <div className="message__bubble">
-                <p className="message__body">{message.content}</p>
+                {message.role === "assistant" ? (
+                  <div className="message__body message__body--markdown">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.content}
+                    </ReactMarkdown>
+                    {message.id === "streaming-assistant" ? (
+                      <span className="streaming-cursor" aria-hidden="true" />
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="message__body">{message.content}</p>
+                )}
                 {message.citations.length > 0 ? (
                   <div className="citation-chips" aria-label="Cited pages">
                     {message.citations.map((citation) => (
-                      <span
+                      <button
                         className="citation-chip"
                         key={`${citation.paperId}-${citation.page}`}
+                        type="button"
+                        onClick={() => scrollToEvidence(citation.paperId, citation.page)}
+                        aria-label={`Jump to evidence: ${citation.label} page ${citation.page}`}
                       >
                         {citation.label} p.{citation.page}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 ) : null}
