@@ -9,17 +9,15 @@ import { PaperUploadPanel } from "@/components/paper-upload-panel";
 import { ResearchSidebar, type WorkspaceView } from "@/components/research-sidebar";
 import { SettingsView } from "@/components/settings-view";
 import { defaultApiBaseUrl, paperMemoryApi } from "@/lib/api";
+import { useChatSession } from "@/lib/use-chat-session";
 import {
   mockConversations,
-  mockEvidence,
   mockModelSettings,
   mockPaperGroups,
   mockPapers,
-  mockResearchLibraries
+  mockResearchLibraries,
 } from "@/lib/mock-data";
 import type {
-  ApiChatResponse,
-  ApiPageEvidence,
   ApiPaperMetadata,
   ApiPaperGroup,
   ApiResearchConversation,
@@ -27,14 +25,13 @@ import type {
   ApiWorkspaceMessage,
   ChatMessage,
   Citation,
-  EvidenceItem,
   InstallSettings,
   ModelSettings,
   PaperGroup,
   PaperStatus,
   PaperSummary,
   ResearchConversation,
-  ResearchLibrary
+  ResearchLibrary,
 } from "@/lib/types";
 
 type ApiConnection = "checking" | "online" | "offline";
@@ -50,7 +47,7 @@ const statusMap: Record<ApiPaperMetadata["status"], PaperStatus> = {
   processing: "indexing",
   indexing: "indexing",
   ready: "ready",
-  failed: "error"
+  failed: "error",
 };
 
 const initialInstallSettings: InstallSettings = {
@@ -70,7 +67,7 @@ const initialInstallSettings: InstallSettings = {
   providerCompany: "OpenAI",
   providerBaseUrl: "https://api.openai.com/v1",
   providerModel: "gpt-4o",
-  providerApiKey: ""
+  providerApiKey: "",
 };
 
 function getErrorMessage(error: unknown) {
@@ -80,7 +77,8 @@ function getErrorMessage(error: unknown) {
 function mapApiPaper(paper: ApiPaperMetadata): PaperSummary {
   const pages = paper.page_count ?? 0;
   const status = statusMap[paper.status];
-  const progress = status === "ready" ? 100 : status === "error" ? 100 : status === "indexing" ? 55 : 12;
+  const progress =
+    status === "ready" ? 100 : status === "error" ? 100 : status === "indexing" ? 55 : 12;
 
   return {
     id: paper.paper_id,
@@ -93,23 +91,15 @@ function mapApiPaper(paper: ApiPaperMetadata): PaperSummary {
     indexSummary:
       pages > 0
         ? `${pages} page images registered for VisRAG-style retrieval.`
-        : "Upload accepted; page rendering has not reported a count yet."
+        : "Upload accepted; page rendering has not reported a count yet.",
   };
-}
-
-function citationsFromEvidence(evidence: ApiPageEvidence[], paperTitles: Record<string, string>) {
-  return evidence.slice(0, 4).map((item) => ({
-    paperId: item.paper_id,
-    label: paperTitles[item.paper_id] ?? item.paper_id,
-    page: item.page_number
-  }));
 }
 
 function mapApiCitation(citation: { paper_id: string; label: string; page: number }): Citation {
   return {
     paperId: citation.paper_id,
     label: citation.label,
-    page: citation.page
+    page: citation.page,
   };
 }
 
@@ -117,7 +107,7 @@ function mapCitationToApi(citation: Citation) {
   return {
     paper_id: citation.paperId,
     label: citation.label,
-    page: citation.page
+    page: citation.page,
   };
 }
 
@@ -126,7 +116,7 @@ function mapApiWorkspaceMessage(message: ApiWorkspaceMessage): ChatMessage {
     id: message.id,
     role: message.role,
     content: message.content,
-    citations: message.citations.map(mapApiCitation)
+    citations: message.citations.map(mapApiCitation),
   };
 }
 
@@ -135,7 +125,7 @@ function mapMessageToApi(message: ChatMessage): ApiWorkspaceMessage {
     id: message.id,
     role: message.role,
     content: message.content,
-    citations: message.citations.map(mapCitationToApi)
+    citations: message.citations.map(mapCitationToApi),
   };
 }
 
@@ -147,7 +137,7 @@ function mapApiLibrary(library: ApiResearchLibrary): ResearchLibrary {
     paperIds: library.paper_ids,
     groupIds: library.group_ids,
     createdAt: library.created_at,
-    updatedAt: library.updated_at
+    updatedAt: library.updated_at,
   };
 }
 
@@ -159,7 +149,7 @@ function mapApiConversation(conversation: ApiResearchConversation): ResearchConv
     description: conversation.description,
     messages: conversation.messages.map(mapApiWorkspaceMessage),
     createdAt: conversation.created_at,
-    updatedAt: conversation.updated_at
+    updatedAt: conversation.updated_at,
   };
 }
 
@@ -171,7 +161,7 @@ function mapApiPaperGroup(group: ApiPaperGroup): PaperGroup {
     description: group.description,
     paperIds: group.paper_ids,
     createdAt: group.created_at,
-    updatedAt: group.updated_at
+    updatedAt: group.updated_at,
   };
 }
 
@@ -186,68 +176,55 @@ function makeConversation(libraryId: string, title = "New research chat"): Resea
     description: "A local chat scoped to the active paper database.",
     messages: [],
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
-}
-
-function scopedEvidenceNote(libraryName?: string) {
-  return libraryName
-    ? `No evidence loaded for ${libraryName} yet. Search inside this database to populate page evidence.`
-    : "No evidence loaded for this conversation yet. Search inside the active database to populate page evidence.";
 }
 
 export function WorkspaceClient() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>({
     connection: "checking",
     label: "Checking API",
-    detail: "Probing FastAPI before loading the local library."
+    detail: "Probing FastAPI before loading the local library.",
   });
   const [libraries, setLibraries] = useState<ResearchLibrary[]>(mockResearchLibraries);
   const [activeLibraryId, setActiveLibraryId] = useState(mockResearchLibraries[0]?.id ?? "");
   const [conversations, setConversations] = useState<ResearchConversation[]>(mockConversations);
-  const [activeConversationId, setActiveConversationId] = useState(mockConversations[0]?.id ?? "");
+  const [activeConversationId, setActiveConversationId] = useState(
+    mockConversations[0]?.id ?? "",
+  );
   const [paperGroups, setPaperGroups] = useState<PaperGroup[]>(mockPaperGroups);
   const [isWorkspacePersisted, setIsWorkspacePersisted] = useState(false);
   const [papers, setPapers] = useState<PaperSummary[]>(mockPapers);
-  const [evidence, setEvidence] = useState<Array<EvidenceItem | ApiPageEvidence>>(mockEvidence);
-  const [evidenceNote, setEvidenceNote] = useState<string | null>(null);
   const [settings, setSettings] = useState<ModelSettings>(mockModelSettings);
   const [installSettings, setInstallSettings] = useState<InstallSettings>(initialInstallSettings);
-  const [question, setQuestion] = useState("");
   const [uploadTitle, setUploadTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [isChatSubmitting, setIsChatSubmitting] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [chatError, setChatError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<WorkspaceView>("research");
 
   const paperTitles = useMemo(
     () => Object.fromEntries(papers.map((paper) => [paper.id, paper.title])),
-    [papers]
+    [papers],
   );
 
   const activeLibrary = useMemo(
     () => libraries.find((library) => library.id === activeLibraryId) ?? libraries[0],
-    [activeLibraryId, libraries]
+    [activeLibraryId, libraries],
   );
 
-  const activeConversation = useMemo(
-    () => {
-      const activeLibraryConversations = conversations.filter(
-        (conversation) => conversation.libraryId === activeLibrary?.id
-      );
-      return (
-        activeLibraryConversations.find((conversation) => conversation.id === activeConversationId) ??
-        activeLibraryConversations[0]
-      );
-    },
-    [activeConversationId, activeLibrary?.id, conversations]
-  );
-
-  const messages = activeConversation?.messages ?? [];
+  const activeConversation = useMemo(() => {
+    const activeLibraryConversations = conversations.filter(
+      (conversation) => conversation.libraryId === activeLibrary?.id,
+    );
+    return (
+      activeLibraryConversations.find(
+        (conversation) => conversation.id === activeConversationId,
+      ) ?? activeLibraryConversations[0]
+    );
+  }, [activeConversationId, activeLibrary?.id, conversations]);
 
   const activeLibraryPapers = useMemo(() => {
     const paperIds = new Set(activeLibrary?.paperIds ?? []);
@@ -255,24 +232,24 @@ export function WorkspaceClient() {
   }, [activeLibrary?.paperIds, papers]);
 
   const readyPaperIds = useMemo(
-    () => activeLibraryPapers.filter((paper) => paper.status === "ready").map((paper) => paper.id),
-    [activeLibraryPapers]
+    () =>
+      activeLibraryPapers.filter((paper) => paper.status === "ready").map((paper) => paper.id),
+    [activeLibraryPapers],
   );
 
   const activeLibraryGroups = useMemo(
     () => paperGroups.filter((group) => group.libraryId === activeLibrary?.id),
-    [activeLibrary?.id, paperGroups]
+    [activeLibrary?.id, paperGroups],
   );
 
   const setConversationMessages = (conversationId: string, nextMessages: ChatMessage[]) => {
     const now = new Date().toISOString();
-
     setConversations((currentConversations) =>
       currentConversations.map((conversation) =>
         conversation.id === conversationId
           ? { ...conversation, messages: nextMessages, updatedAt: now }
-          : conversation
-      )
+          : conversation,
+      ),
     );
   };
 
@@ -282,27 +259,52 @@ export function WorkspaceClient() {
       if (!exists) {
         return [conversation, ...currentConversations];
       }
-      return currentConversations.map((item) => (item.id === conversation.id ? conversation : item));
+      return currentConversations.map((item) =>
+        item.id === conversation.id ? conversation : item,
+      );
     });
   };
 
-  const persistConversationMessages = async (conversationId: string, nextMessages: ChatMessage[]) => {
+  const persistConversationMessages = async (
+    conversationId: string,
+    nextMessages: ChatMessage[],
+  ) => {
     if (!isWorkspacePersisted) {
       return;
     }
-
     const updated = await paperMemoryApi.updateConversation(
       conversationId,
       { messages: nextMessages.map(mapMessageToApi) },
-      installSettings.apiBaseUrl
+      installSettings.apiBaseUrl,
     );
     replaceConversation(mapApiConversation(updated));
   };
 
+  const {
+    messages,
+    question,
+    setQuestion,
+    isSubmitting: isChatSubmitting,
+    error: chatError,
+    evidence,
+    evidenceNote,
+    submit: handleSubmitQuestion,
+    reset: resetChat,
+    searchEvidence: handleSearchEvidence,
+  } = useChatSession({
+    activeConversation,
+    activeLibrary,
+    readyPaperIds,
+    settings,
+    installSettings,
+    paperTitles,
+    isWorkspacePersisted,
+    onMessagesChange: setConversationMessages,
+    onPersistMessages: persistConversationMessages,
+  });
+
   const createConversation = async (libraryId = activeLibrary?.id ?? activeLibraryId) => {
-    if (!libraryId) {
-      return;
-    }
+    if (!libraryId) return;
 
     let conversation = makeConversation(libraryId);
     if (isWorkspacePersisted) {
@@ -311,9 +313,9 @@ export function WorkspaceClient() {
         {
           title: conversation.title,
           description: conversation.description,
-          messages: []
+          messages: [],
         },
-        installSettings.apiBaseUrl
+        installSettings.apiBaseUrl,
       );
       conversation = mapApiConversation(created);
     }
@@ -321,10 +323,6 @@ export function WorkspaceClient() {
     setConversations((currentConversations) => [conversation, ...currentConversations]);
     setActiveLibraryId(libraryId);
     setActiveConversationId(conversation.id);
-    setQuestion("");
-    setChatError(null);
-    setEvidence([]);
-    setEvidenceNote(scopedEvidenceNote(activeLibrary?.name));
   };
 
   const createLibrary = async (name: string, description: string) => {
@@ -340,9 +338,9 @@ export function WorkspaceClient() {
       const createdLibrary = await paperMemoryApi.createLibrary(
         {
           name: trimmedName,
-          description: description.trim()
+          description: description.trim(),
         },
-        installSettings.apiBaseUrl
+        installSettings.apiBaseUrl,
       );
       library = mapApiLibrary(createdLibrary);
 
@@ -352,21 +350,18 @@ export function WorkspaceClient() {
           {
             title: "Research chat",
             description: "A local chat scoped to this paper database.",
-            messages: []
+            messages: [],
           },
-          installSettings.apiBaseUrl
+          installSettings.apiBaseUrl,
         );
         conversation = mapApiConversation(createdConversation);
-      } catch (error) {
-        setLibraries((currentLibraries) => [library, ...currentLibraries.filter((item) => item.id !== library.id)]);
+      } catch {
+        setLibraries((currentLibraries) => [
+          library,
+          ...currentLibraries.filter((item) => item.id !== library.id),
+        ]);
         setActiveLibraryId(library.id);
         setActiveConversationId("");
-        setQuestion("");
-        setEvidence([]);
-        setEvidenceNote(scopedEvidenceNote(library.name));
-        setChatError(
-          `${library.name} was created, but the default conversation could not be created. Use + in Conversations to retry. ${getErrorMessage(error)}`
-        );
         await loadWorkspace({ paperId: "", libraryId: library.id });
         return;
       }
@@ -379,7 +374,7 @@ export function WorkspaceClient() {
         paperIds: [],
         groupIds: [],
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
       conversation = makeConversation(library.id, "Research chat");
     }
@@ -388,26 +383,20 @@ export function WorkspaceClient() {
     setConversations((currentConversations) => [conversation, ...currentConversations]);
     setActiveLibraryId(library.id);
     setActiveConversationId(conversation.id);
-    setQuestion("");
-    setChatError(null);
-    setEvidence([]);
-    setEvidenceNote(scopedEvidenceNote(library.name));
   };
 
   const selectLibrary = async (libraryId: string) => {
-    const existingConversation = conversations.find((conversation) => conversation.libraryId === libraryId);
+    const existingConversation = conversations.find(
+      (conversation) => conversation.libraryId === libraryId,
+    );
     setActiveLibraryId(libraryId);
 
     if (existingConversation) {
       setActiveConversationId(existingConversation.id);
-      setQuestion("");
-      setChatError(null);
       return;
     }
 
     setActiveConversationId("");
-    setQuestion("");
-    setChatError(null);
 
     let conversation = makeConversation(libraryId);
     if (isWorkspacePersisted) {
@@ -416,30 +405,28 @@ export function WorkspaceClient() {
         {
           title: conversation.title,
           description: conversation.description,
-          messages: []
+          messages: [],
         },
-        installSettings.apiBaseUrl
+        installSettings.apiBaseUrl,
       );
       conversation = mapApiConversation(created);
     }
     setConversations((currentConversations) => [conversation, ...currentConversations]);
     setActiveConversationId(conversation.id);
-    setQuestion("");
-    setChatError(null);
   };
 
   const loadWorkspace = async (assignment?: { paperId: string; libraryId: string }) => {
     setApiStatus({
       connection: "checking",
       label: "Checking API",
-      detail: "Refreshing health and paper metadata."
+      detail: "Refreshing health and paper metadata.",
     });
 
     try {
       const [health, paperList, workspace] = await Promise.all([
         paperMemoryApi.health(installSettings.apiBaseUrl),
         paperMemoryApi.listPapers(installSettings.apiBaseUrl),
-        paperMemoryApi.getWorkspace(installSettings.apiBaseUrl)
+        paperMemoryApi.getWorkspace(installSettings.apiBaseUrl),
       ]);
       const mappedPapers = paperList.papers.map(mapApiPaper);
       setPapers(mappedPapers);
@@ -451,42 +438,45 @@ export function WorkspaceClient() {
       setPaperGroups(mappedGroups);
       setIsWorkspacePersisted(true);
       const nextActiveLibraryId =
-        assignment?.libraryId && mappedLibraries.some((library) => library.id === assignment.libraryId)
+        assignment?.libraryId &&
+        mappedLibraries.some((library) => library.id === assignment.libraryId)
           ? assignment.libraryId
           : mappedLibraries.some((library) => library.id === activeLibraryId)
             ? activeLibraryId
-            : mappedLibraries[0]?.id ?? "";
+            : (mappedLibraries[0]?.id ?? "");
       const nextConversation = assignment?.libraryId
-        ? mappedConversations.find((conversation) => conversation.libraryId === nextActiveLibraryId)
-        : mappedConversations.find(
-            (conversation) =>
-              conversation.id === activeConversationId && conversation.libraryId === nextActiveLibraryId
-          ) ??
-          mappedConversations.find((conversation) => conversation.libraryId === nextActiveLibraryId);
+        ? mappedConversations.find(
+            (conversation) => conversation.libraryId === nextActiveLibraryId,
+          )
+        : (mappedConversations.find(
+              (conversation) =>
+                conversation.id === activeConversationId &&
+                conversation.libraryId === nextActiveLibraryId,
+            ) ??
+            mappedConversations.find(
+              (conversation) => conversation.libraryId === nextActiveLibraryId,
+            ));
       setActiveLibraryId(nextActiveLibraryId);
       setActiveConversationId(nextConversation?.id ?? "");
-      const nextActiveLibrary = mappedLibraries.find((library) => library.id === nextActiveLibraryId);
-      setEvidence([]);
-      setEvidenceNote(scopedEvidenceNote(nextActiveLibrary?.name));
       setApiStatus({
         connection: "online",
         label: "API online",
-        detail: `${health.service} ${health.version} at ${health.storage_root}`
+        detail: `${health.service} ${health.version} at ${health.storage_root}`,
       });
     } catch (error) {
       setPapers(mockPapers);
-      setLibraries((currentLibraries) => (currentLibraries.length > 0 ? currentLibraries : mockResearchLibraries));
+      setLibraries((currentLibraries) =>
+        currentLibraries.length > 0 ? currentLibraries : mockResearchLibraries,
+      );
       setConversations((currentConversations) =>
-        currentConversations.length > 0 ? currentConversations : mockConversations
+        currentConversations.length > 0 ? currentConversations : mockConversations,
       );
       setPaperGroups(mockPaperGroups);
       setIsWorkspacePersisted(false);
-      setEvidence(mockEvidence);
-      setEvidenceNote("Using mock evidence until the local API is reachable.");
       setApiStatus({
         connection: "offline",
         label: "API offline",
-        detail: `${getErrorMessage(error)} Mock workspace data is shown.`
+        detail: `${getErrorMessage(error)} Mock workspace data is shown.`,
       });
     }
   };
@@ -494,25 +484,6 @@ export function WorkspaceClient() {
   useEffect(() => {
     void loadWorkspace();
   }, []);
-
-  const searchEvidence = async (query: string) => {
-    if (readyPaperIds.length === 0) {
-      const message = `No ready papers in ${activeLibrary?.name ?? "the active database"}. Upload and index a PDF before searching.`;
-      setEvidence([]);
-      setEvidenceNote(message);
-      throw new Error(message);
-    }
-
-    const response = await paperMemoryApi.searchEvidence(
-      query,
-      readyPaperIds,
-      settings.retrievalTopK,
-      installSettings.apiBaseUrl
-    );
-    setEvidence(response.evidence);
-    setEvidenceNote(response.note);
-    return response.evidence;
-  };
 
   const handleUpload = async () => {
     if (!selectedFile) {
@@ -525,9 +496,11 @@ export function WorkspaceClient() {
     setUploadMessage(null);
 
     try {
-      const response = await paperMemoryApi.uploadPaper(selectedFile, {
-        title: uploadTitle.trim() || undefined
-      }, installSettings.apiBaseUrl);
+      const response = await paperMemoryApi.uploadPaper(
+        selectedFile,
+        { title: uploadTitle.trim() || undefined },
+        installSettings.apiBaseUrl,
+      );
       const uploadedPaper = mapApiPaper(response.paper);
       const libraryId = activeLibrary?.id ?? activeLibraryId;
       const nextLibraryPaperIds = activeLibrary?.paperIds.includes(uploadedPaper.id)
@@ -537,7 +510,7 @@ export function WorkspaceClient() {
         await paperMemoryApi.updateLibrary(
           libraryId,
           { paper_ids: nextLibraryPaperIds },
-          installSettings.apiBaseUrl
+          installSettings.apiBaseUrl,
         );
       }
       setPapers((currentPapers) => {
@@ -548,8 +521,8 @@ export function WorkspaceClient() {
         currentLibraries.map((library) =>
           library.id === libraryId && !library.paperIds.includes(uploadedPaper.id)
             ? { ...library, paperIds: [uploadedPaper.id, ...library.paperIds] }
-            : library
-        )
+            : library,
+        ),
       );
       setUploadMessage(response.message);
       setSelectedFile(null);
@@ -561,156 +534,31 @@ export function WorkspaceClient() {
       setApiStatus({
         connection: "offline",
         label: "Upload failed",
-        detail: "The upload API could not be reached; mock library data is still displayed."
+        detail:
+          "The upload API could not be reached; mock library data is still displayed.",
       });
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleSearchEvidence = async () => {
-    const trimmedQuestion = question.trim();
-    if (!trimmedQuestion) {
-      return;
-    }
-
-    setChatError(null);
-    try {
-      await searchEvidence(trimmedQuestion);
-    } catch (error) {
-      setEvidence([]);
-      setEvidenceNote(getErrorMessage(error));
-      setChatError(getErrorMessage(error));
-    }
-  };
-
-  const handleSubmitQuestion = async () => {
-    const trimmedQuestion = question.trim();
-    if (!trimmedQuestion) {
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: trimmedQuestion,
-      citations: []
-    };
-
-    const priorMessages = messages.map((message) => ({
-      role: message.role,
-      content: message.content
-    }));
-
-    if (!activeConversation) {
-      setChatError("Create a conversation inside the active database before asking questions.");
-      return;
-    }
-
-    const nextUserMessages = [...messages, userMessage];
-    setConversationMessages(activeConversation.id, nextUserMessages);
-    setQuestion("");
-    setChatError(null);
-    setIsChatSubmitting(true);
-
-    let chatPaperIds = readyPaperIds;
-    let fallbackEvidenceNote: string | null = null;
-
-    try {
-      if (readyPaperIds.length > 0) {
-        try {
-          await searchEvidence(trimmedQuestion);
-        } catch (error) {
-          chatPaperIds = [];
-          fallbackEvidenceNote = `Conversation mode: retrieval failed for the active paper scope, so this answer is not paper-grounded. ${getErrorMessage(error)}`;
-          setEvidence([]);
-          setEvidenceNote(fallbackEvidenceNote);
-        }
-      } else {
-        setEvidence([]);
-        setEvidenceNote("Conversation mode: no ready papers are scoped for retrieval in this database.");
-      }
-
-      const response: ApiChatResponse = await paperMemoryApi.createChat({
-        question: trimmedQuestion,
-        paper_ids: chatPaperIds,
-        top_k: settings.retrievalTopK,
-        messages: priorMessages,
-        provider: settings.provider,
-        base_url: settings.baseUrl.trim() || undefined,
-        model: settings.model.trim() || undefined,
-        api_key: settings.apiKey || undefined,
-        temperature: settings.temperature,
-        enable_image_context: settings.useMultimodalContext,
-        max_evidence_images: settings.maxEvidenceImages
-      }, installSettings.apiBaseUrl);
-
-      setEvidence(response.evidence);
-      setEvidenceNote(fallbackEvidenceNote ?? response.note);
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: response.answer,
-        citations: citationsFromEvidence(response.evidence, paperTitles)
-      };
-      const nextMessages: ChatMessage[] = [...nextUserMessages, assistantMessage];
-      setConversationMessages(activeConversation.id, nextMessages);
-      await persistConversationMessages(activeConversation.id, nextMessages);
-      setApiStatus((currentStatus) => ({
-        ...currentStatus,
-        connection: "online",
-        label: "API online"
-      }));
-    } catch (error) {
-      setChatError(getErrorMessage(error));
-      setEvidence([]);
-      setEvidenceNote("Chat failed before PaperMemory could return an answer for this conversation.");
-      setApiStatus({
-        connection: "offline",
-        label: "Chat API error",
-        detail: "The chat request failed; mock workspace data is still available."
-      });
-    } finally {
-      setIsChatSubmitting(false);
-    }
-  };
-
-  const resetChat = () => {
-    if (activeConversation) {
-      setConversationMessages(activeConversation.id, []);
-      void persistConversationMessages(activeConversation.id, []);
-    }
-    setEvidence([]);
-    setEvidenceNote(scopedEvidenceNote(activeLibrary?.name));
-    setChatError(null);
-    setQuestion("");
-  };
-
   const handleSelectLibrary = (libraryId: string) => {
     const library = libraries.find((item) => item.id === libraryId);
     void selectLibrary(libraryId).catch((error) => {
-      setChatError(
-        `${library?.name ?? "The database"} is active, but the default conversation could not be created. Use + in Conversations to retry. ${getErrorMessage(error)}`
+      console.error(
+        `${library?.name ?? "The database"} is active, but the default conversation could not be created. ${getErrorMessage(error)}`,
       );
     });
-    setEvidence([]);
-    setEvidenceNote(scopedEvidenceNote(library?.name));
   };
 
   const handleSelectConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
-    setQuestion("");
-    setChatError(null);
-    setEvidence([]);
-    setEvidenceNote(scopedEvidenceNote(activeLibrary?.name));
   };
 
   const handleCreateConversation = () => {
     void createConversation().catch((error) => {
-      setChatError(getErrorMessage(error));
+      console.error(getErrorMessage(error));
     });
-    setEvidence([]);
-    setEvidenceNote(scopedEvidenceNote(activeLibrary?.name));
   };
 
   return (
@@ -756,7 +604,9 @@ export function WorkspaceClient() {
                 isSubmitting={isChatSubmitting}
                 title={activeConversation?.title ?? "Research chat"}
                 contextLabel={activeLibrary?.name ?? "Research database"}
-                libraryDescription={activeLibrary?.description ?? "Ask questions over the active paper database."}
+                libraryDescription={
+                  activeLibrary?.description ?? "Ask questions over the active paper database."
+                }
                 error={chatError}
                 onQuestionChange={setQuestion}
                 onSubmit={handleSubmitQuestion}
@@ -765,8 +615,14 @@ export function WorkspaceClient() {
               />
             </div>
 
-            <aside className="side-stack workspace-aside" aria-label="Active database and retrieval evidence">
-              <section className="panel active-library-panel" aria-labelledby="active-library-title">
+            <aside
+              className="side-stack workspace-aside"
+              aria-label="Active database and retrieval evidence"
+            >
+              <section
+                className="panel active-library-panel"
+                aria-labelledby="active-library-title"
+              >
                 <div className="panel__header">
                   <div>
                     <p className="eyebrow">Active database</p>
