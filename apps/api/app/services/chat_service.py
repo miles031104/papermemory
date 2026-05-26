@@ -1,4 +1,6 @@
 import math
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.retrieval import PageEvidence
@@ -125,6 +127,92 @@ class ChatService:
                 included_image_count=included_image_count,
             ),
         )
+
+    async def answer_stream(self, request: ChatRequest) -> AsyncGenerator[str | dict[str, Any], None]:
+        """Stream chat response as SSE-compatible chunks.
+
+        Yields str tokens during generation, then one final dict with keys
+        'answer', 'evidence', 'note', and 'stats' when generation is complete.
+        The final 'answer' value has leading reasoning traces stripped.
+        """
+        paper_scope_count = len(request.paper_ids or [])
+        if not request.paper_ids:
+            evidence: list[PageEvidence] = []
+            retrieval_attempted = False
+            prompt = self.build_evisrag_prompt(
+                question=request.question,
+                evidence=evidence,
+                retrieval_attempted=retrieval_attempted,
+            )
+        else:
+            retrieval_attempted = True
+            conversational_query = build_conversational_query(
+                question=request.question,
+                messages=request.messages,
+            )
+            query_embedding = await self.visrag.embed_query(conversational_query)
+            effective_max_per_paper = request.max_per_paper
+            if effective_max_per_paper is None and request.paper_ids and len(request.paper_ids) > 1:
+                effective_max_per_paper = math.ceil(request.top_k / len(request.paper_ids))
+            evidence = await self.vector_store.search_pages(
+                embedding=query_embedding.vector,
+                top_k=request.top_k,
+                paper_ids=request.paper_ids,
+                score_threshold=request.score_threshold,
+                max_per_paper=effective_max_per_paper,
+            )
+            prompt = self.build_evisrag_prompt(
+                question=request.question,
+                evidence=evidence,
+                retrieval_attempted=retrieval_attempted,
+            )
+
+        user_content = self.model_gateway.build_user_content(
+            text=prompt,
+            image_paths=self._resolve_authorized_image_paths(evidence),
+            enable_image_context=request.enable_image_context,
+            max_evidence_images=request.max_evidence_images,
+        )
+        selected_messages = select_recent_conversation_messages(request.messages)
+        messages = [
+            {"role": "system", "content": PAPERMEMORY_SYSTEM_PROMPT},
+            *[message.model_dump() for message in selected_messages],
+            {"role": "user", "content": user_content.content},
+        ]
+
+        raw_tokens: list[str] = []
+        async for token in self.model_gateway.generate_stream(
+            messages=messages,
+            model=request.model,
+            base_url=request.base_url,
+            api_key=request.api_key,
+            temperature=request.temperature,
+        ):
+            raw_tokens.append(token)
+            yield token
+
+        full_text = "".join(raw_tokens)
+        try:
+            clean_answer = ModelGateway._strip_reasoning_traces(full_text)
+        except Exception:
+            clean_answer = full_text
+
+        included_image_count = user_content.included_image_count
+        yield {
+            "answer": clean_answer,
+            "evidence": evidence,
+            "note": self._build_generation_note(
+                included_image_count=included_image_count,
+                evidence_count=len(evidence),
+                retrieval_attempted=retrieval_attempted,
+            ),
+            "stats": {
+                "retrieval_attempted": retrieval_attempted,
+                "paper_scope_count": paper_scope_count,
+                "evidence_count": len(evidence),
+                "included_image_count": included_image_count,
+            },
+        }
 
     def build_evisrag_prompt(
         self,
