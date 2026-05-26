@@ -1,5 +1,7 @@
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 import base64
+import json
 import mimetypes
 from pathlib import Path
 import re
@@ -138,6 +140,78 @@ class ModelGateway:
         text = self._extract_text(data)
         response_model = str(data.get("model") or target_model)
         return GenerationResponse(text=text, model=response_model)
+
+    async def generate_stream(
+        self,
+        messages: list[ChatCompletionMessage],
+        model: str | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        temperature: float = 0.2,
+    ) -> AsyncGenerator[str, None]:
+        """Stream delta tokens from the BYOK provider via OpenAI-compatible SSE.
+
+        Yields raw delta strings. Reasoning-trace stripping is deferred to the
+        caller (answer_stream) which assembles the full text before sending the
+        done frame to the client.
+        """
+        target_model = model or self.model
+        target_base_url = base_url or self.base_url
+        target_api_key = api_key or self.api_key
+
+        if not target_base_url or not target_api_key:
+            yield (
+                "BYOK model gateway is not configured yet. Add a provider base URL and API key "
+                "in setup or model settings, then retry this question."
+            )
+            return
+
+        image_bytes = self.estimate_request_image_bytes(messages)
+        if image_bytes > self._REQUEST_IMAGE_WARN_BYTES:
+            raise ModelGatewayError(
+                f"Request image payload is {image_bytes // (1024 * 1024)} MB, which exceeds the "
+                f"{self._REQUEST_IMAGE_WARN_BYTES // (1024 * 1024)} MB safety limit. "
+                "Reduce max_evidence_images or switch to text-only mode.",
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
+        url = f"{target_base_url.rstrip('/')}/chat/completions"
+        payload = self.build_chat_completions_payload(
+            messages=messages,
+            model=target_model,
+            temperature=temperature,
+        )
+        payload["stream"] = True
+        headers = {
+            "Authorization": f"Bearer {target_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        data_str = line[5:].strip()
+                        if data_str == "[DONE]":
+                            return
+                        try:
+                            data = json.loads(data_str)
+                            delta = data["choices"][0]["delta"].get("content") or ""
+                        except (KeyError, IndexError, json.JSONDecodeError):
+                            continue
+                        if delta:
+                            yield delta
+        except httpx.HTTPStatusError as exc:
+            provider_detail = self._safe_provider_error(exc.response)
+            raise ModelGatewayError(
+                f"provider returned HTTP {exc.response.status_code}: {provider_detail}",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise ModelGatewayError(f"request failed: {exc.__class__.__name__}") from exc
 
     def build_user_content(
         self,
