@@ -334,6 +334,18 @@ export function WorkspaceClient() {
     onPersistMessages: persistConversationMessages,
   });
 
+  const workspaceMetrics = useMemo(() => {
+    const readyPapers = activeLibraryPapers.filter((paper) => paper.status === "ready").length;
+    const indexedPages = activeLibraryPapers.reduce((total, paper) => total + paper.pages, 0);
+    const activeEvidence = evidence.length;
+
+    return [
+      { label: "Ready papers", value: readyPapers.toString().padStart(2, "0") },
+      { label: "Indexed pages", value: indexedPages.toLocaleString() },
+      { label: "Evidence queue", value: activeEvidence.toString().padStart(2, "0") },
+    ];
+  }, [activeLibraryPapers, evidence.length]);
+
   const createConversation = async (libraryId = activeLibrary?.id ?? activeLibraryId) => {
     if (!libraryId) return;
 
@@ -602,6 +614,83 @@ export function WorkspaceClient() {
 
   return (
     <main className="app-shell">
+      <nav className="product-nav" aria-label="PaperMemory navigation">
+        <button className="brand-mark" type="button" onClick={() => setActiveView("research")}>
+          <span className="brand-mark__glyph" aria-hidden="true">PM</span>
+          <span>PaperMemory</span>
+        </button>
+        <div className="product-nav__links" role="tablist" aria-label="Workspace views">
+          <button
+            className={activeView === "research" ? "product-nav__link product-nav__link--active" : "product-nav__link"}
+            type="button"
+            role="tab"
+            aria-selected={activeView === "research"}
+            onClick={() => setActiveView("research")}
+          >
+            Workspace
+          </button>
+          <button
+            className={activeView === "settings" ? "product-nav__link product-nav__link--active" : "product-nav__link"}
+            type="button"
+            role="tab"
+            aria-selected={activeView === "settings"}
+            onClick={() => setActiveView("settings")}
+          >
+            Settings
+          </button>
+        </div>
+        <div className="product-nav__status" aria-label="API status">
+          <span className={`status-dot status-dot--${apiStatus.connection}`} aria-hidden="true" />
+          <span>{apiStatus.label}</span>
+        </div>
+      </nav>
+
+      <section className="hero-section" aria-labelledby="hero-title">
+        <div className="hero-section__copy">
+          <p className="hero-kicker">Local-first visual RAG for serious reading</p>
+          <h1 id="hero-title">A research memory that sees the page, not just the text.</h1>
+          <p className="hero-section__lead">
+            Upload papers, retrieve visual page evidence, and ask model-backed questions across a private local library.
+          </p>
+          <div className="hero-actions">
+            <button className="button button--primary button--hero" type="button" onClick={() => setActiveView("research")}>
+              Open workspace
+            </button>
+            <button className="button button--subtle button--hero" type="button" onClick={() => setActiveView("settings")}>
+              Configure models
+            </button>
+          </div>
+        </div>
+
+        <div className="hero-command" aria-label="Active research command center">
+          <div className="hero-command__top">
+            <div>
+              <p className="eyebrow">Active database</p>
+              <h2>{activeLibrary?.name ?? "Research database"}</h2>
+            </div>
+            <span className="hero-command__pill">{isWorkspacePersisted ? "Local sync" : "Demo mode"}</span>
+          </div>
+          <div className="hero-command__prompt">
+            <span aria-hidden="true">Ask</span>
+            <p>{question.trim() || "What does this paper prove, and where is the evidence?"}</p>
+          </div>
+          <div className="hero-metrics">
+            {workspaceMetrics.map((metric) => (
+              <div className="hero-metric" key={metric.label}>
+                <strong>{metric.value}</strong>
+                <span>{metric.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="hero-evidence-strip" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+      </section>
+
       <section
         className={`workspace-grid workspace-grid--${activeView}`}
         aria-label="PaperMemory workspace"
@@ -664,7 +753,7 @@ export function WorkspaceClient() {
               >
                 <div className="panel__header">
                   <div>
-                    <p className="eyebrow">Active database</p>
+                    <p className="eyebrow">Library scope</p>
                     <h2 id="active-library-title">{activeLibrary?.name ?? "Research database"}</h2>
                     <p>{apiStatus.detail}</p>
                     <p className="small-muted">
