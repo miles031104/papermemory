@@ -80,3 +80,12 @@ def update_paper_group(
     store: WorkspaceStore = Depends(get_workspace_store),
 ) -> PaperGroup:
     return store.update_paper_group(group_id=group_id, request=request)
+
+
+@router.post("/paper-groups/{group_id}/papers/{paper_id}", response_model=PaperGroup)
+def move_paper_to_group(
+    group_id: str = Path(pattern=WORKSPACE_ID_PATTERN),
+    paper_id: str = Path(pattern=WORKSPACE_ID_PATTERN),
+    store: WorkspaceStore = Depends(get_workspace_store),
+) -> PaperGroup:
+    return store.move_paper_to_group(group_id=group_id, paper_id=paper_id)

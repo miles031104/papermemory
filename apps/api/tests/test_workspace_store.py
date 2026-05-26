@@ -499,3 +499,60 @@ def test_workspace_repair_removes_duplicate_group_membership_within_library(tmp_
 
     assert next(group for group in groups if group["id"] == "group-a")["paper_ids"] == ["paper-shared"]
     assert next(group for group in groups if group["id"] == "group-b")["paper_ids"] == []
+
+
+def test_move_paper_to_group_removes_it_from_previous_group(tmp_path: Path) -> None:
+    _write_ready_paper(tmp_path, "paper-move")
+    client = _client(tmp_path)
+    library_id = client.get("/workspace").json()["libraries"][0]["id"]
+    group_a = client.post(
+        f"/workspace/libraries/{library_id}/paper-groups",
+        json={"name": "Group A", "paper_ids": ["paper-move"]},
+    ).json()
+    group_b = client.post(
+        f"/workspace/libraries/{library_id}/paper-groups",
+        json={"name": "Group B"},
+    ).json()
+
+    response = client.post(f"/workspace/paper-groups/{group_b['id']}/papers/paper-move")
+
+    assert response.status_code == 200
+    assert response.json()["paper_ids"] == ["paper-move"]
+    groups = client.get("/workspace").json()["paper_groups"]
+    assert next(group for group in groups if group["id"] == group_a["id"])["paper_ids"] == []
+    assert next(group for group in groups if group["id"] == group_b["id"])["paper_ids"] == ["paper-move"]
+
+
+def test_move_paper_to_group_adds_paper_to_library_scope(tmp_path: Path) -> None:
+    _write_ready_paper(tmp_path, "paper-new-upload")
+    client = _client(tmp_path)
+    custom = client.post("/workspace/libraries", json={"name": "Custom database"}).json()
+    group = client.post(
+        f"/workspace/libraries/{custom['id']}/paper-groups",
+        json={"name": "Target group"},
+    ).json()
+
+    response = client.post(f"/workspace/paper-groups/{group['id']}/papers/paper-new-upload")
+
+    assert response.status_code == 200
+    assert response.json()["paper_ids"] == ["paper-new-upload"]
+    library = next(
+        library
+        for library in client.get("/workspace").json()["libraries"]
+        if library["id"] == custom["id"]
+    )
+    assert library["paper_ids"] == ["paper-new-upload"]
+
+
+def test_move_unknown_paper_to_group_returns_400(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    library_id = client.get("/workspace").json()["libraries"][0]["id"]
+    group = client.post(
+        f"/workspace/libraries/{library_id}/paper-groups",
+        json={"name": "Target group"},
+    ).json()
+
+    response = client.post(f"/workspace/paper-groups/{group['id']}/papers/missing-paper")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unknown paper id: missing-paper"

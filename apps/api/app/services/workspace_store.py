@@ -211,6 +211,37 @@ class WorkspaceStore:
         self._write_workspace(workspace)
         return updated
 
+    def move_paper_to_group(self, group_id: str, paper_id: str) -> PaperGroup:
+        self._validate_id(group_id, "Invalid paper group id.")
+        workspace = self._load_workspace()
+        target_index, target_group = self._find_paper_group(workspace, group_id)
+        validated_paper_id = self._validate_existing_paper_ids([paper_id])[0]
+        library_index, library = self._find_library(workspace, target_group.library_id)
+        now = self._now()
+
+        workspace.libraries[library_index] = library.model_copy(
+            update={
+                "paper_ids": self._dedupe([*library.paper_ids, validated_paper_id]),
+                "updated_at": now,
+            }
+        )
+        updated_target = target_group.model_copy(
+            update={
+                "paper_ids": self._dedupe([*target_group.paper_ids, validated_paper_id]),
+                "updated_at": now,
+            }
+        )
+        workspace.paper_groups[target_index] = updated_target
+        self._remove_paper_ids_from_other_groups(
+            workspace=workspace,
+            library_id=target_group.library_id,
+            keeper_group_id=target_group.id,
+            paper_ids=[validated_paper_id],
+            now=now,
+        )
+        self._write_workspace(workspace)
+        return updated_target
+
     def _load_workspace(self) -> WorkspaceResponse:
         if not self._defaults_initialized:
             self._ensure_defaults()
