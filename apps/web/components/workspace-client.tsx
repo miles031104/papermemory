@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { ChatPanel } from "@/components/chat-panel";
-import { EvidencePanel } from "@/components/evidence-panel";
-import { PaperLibrary } from "@/components/paper-library";
-import { PaperUploadPanel } from "@/components/paper-upload-panel";
-import { ResearchSidebar, type WorkspaceView } from "@/components/research-sidebar";
+import { ChatView } from "@/components/chat-view";
+import { HomeView } from "@/components/home-view";
+import { PaperManagerView } from "@/components/paper-manager-view";
+import { ResearchSidebar } from "@/components/research-sidebar";
 import { SettingsView } from "@/components/settings-view";
 import { defaultApiBaseUrl, paperMemoryApi } from "@/lib/api";
 import { useChatSession } from "@/lib/use-chat-session";
@@ -32,6 +31,7 @@ import type {
   PaperSummary,
   ResearchConversation,
   ResearchLibrary,
+  WorkspaceView,
 } from "@/lib/types";
 
 type ApiConnection = "checking" | "online" | "offline";
@@ -220,6 +220,7 @@ export function WorkspaceClient() {
     mockConversations[0]?.id ?? "",
   );
   const [paperGroups, setPaperGroups] = useState<PaperGroup[]>(mockPaperGroups);
+  const [activeGroupId, setActiveGroupId] = useState(mockPaperGroups[0]?.id ?? "");
   const [isWorkspacePersisted, setIsWorkspacePersisted] = useState(false);
   const [papers, setPapers] = useState<PaperSummary[]>(mockPapers);
   const [settings, setSettings] = useState<ModelSettings>(() =>
@@ -234,7 +235,7 @@ export function WorkspaceClient() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<WorkspaceView>("research");
+  const [activeView, setActiveView] = useState<WorkspaceView>("home");
 
   const paperTitles = useMemo(
     () => Object.fromEntries(papers.map((paper) => [paper.id, paper.title])),
@@ -262,15 +263,27 @@ export function WorkspaceClient() {
     return papers.filter((paper) => paperIds.has(paper.id));
   }, [activeLibrary?.paperIds, papers]);
 
-  const readyPaperIds = useMemo(
-    () =>
-      activeLibraryPapers.filter((paper) => paper.status === "ready").map((paper) => paper.id),
-    [activeLibraryPapers],
-  );
-
   const activeLibraryGroups = useMemo(
     () => paperGroups.filter((group) => group.libraryId === activeLibrary?.id),
     [activeLibrary?.id, paperGroups],
+  );
+
+  const activeGroup = useMemo(
+    () =>
+      activeLibraryGroups.find((group) => group.id === activeGroupId) ??
+      activeLibraryGroups[0],
+    [activeGroupId, activeLibraryGroups],
+  );
+
+  const activeGroupPapers = useMemo(() => {
+    const paperIds = new Set(activeGroup?.paperIds ?? []);
+    return activeLibraryPapers.filter((paper) => paperIds.has(paper.id));
+  }, [activeGroup?.paperIds, activeLibraryPapers]);
+
+  const readyPaperIds = useMemo(
+    () =>
+      activeGroupPapers.filter((paper) => paper.status === "ready").map((paper) => paper.id),
+    [activeGroupPapers],
   );
 
   const setConversationMessages = (conversationId: string, nextMessages: ChatMessage[]) => {
@@ -334,18 +347,6 @@ export function WorkspaceClient() {
     onPersistMessages: persistConversationMessages,
   });
 
-  const workspaceMetrics = useMemo(() => {
-    const readyPapers = activeLibraryPapers.filter((paper) => paper.status === "ready").length;
-    const indexedPages = activeLibraryPapers.reduce((total, paper) => total + paper.pages, 0);
-    const activeEvidence = evidence.length;
-
-    return [
-      { label: "Ready papers", value: readyPapers.toString().padStart(2, "0") },
-      { label: "Indexed pages", value: indexedPages.toLocaleString() },
-      { label: "Evidence queue", value: activeEvidence.toString().padStart(2, "0") },
-    ];
-  }, [activeLibraryPapers, evidence.length]);
-
   const createConversation = async (libraryId = activeLibrary?.id ?? activeLibraryId) => {
     if (!libraryId) return;
 
@@ -376,6 +377,7 @@ export function WorkspaceClient() {
 
     let library: ResearchLibrary;
     let conversation: ResearchConversation | null = null;
+    let defaultGroup: PaperGroup | null = null;
 
     if (isWorkspacePersisted) {
       const createdLibrary = await paperMemoryApi.createLibrary(
@@ -410,12 +412,22 @@ export function WorkspaceClient() {
       }
     } else {
       const now = new Date().toISOString();
+      const groupId = `group-${Date.now()}`;
       library = {
         id: `library-${Date.now()}`,
         name: trimmedName,
         description: description.trim(),
         paperIds: [],
-        groupIds: [],
+        groupIds: [groupId],
+        createdAt: now,
+        updatedAt: now,
+      };
+      defaultGroup = {
+        id: groupId,
+        libraryId: library.id,
+        name: "Ungrouped uploads",
+        description: "Default local-first group for papers that have not been organized yet.",
+        paperIds: [],
         createdAt: now,
         updatedAt: now,
       };
@@ -424,15 +436,71 @@ export function WorkspaceClient() {
 
     setLibraries((currentLibraries) => [library, ...currentLibraries]);
     setConversations((currentConversations) => [conversation, ...currentConversations]);
+    if (defaultGroup) {
+      setPaperGroups((currentGroups) => [defaultGroup, ...currentGroups]);
+      setActiveGroupId(defaultGroup.id);
+    }
     setActiveLibraryId(library.id);
     setActiveConversationId(conversation.id);
+    if (isWorkspacePersisted) {
+      await loadWorkspace({ paperId: "", libraryId: library.id });
+    }
+  };
+
+  const createGroup = async (libraryId: string, name: string, description: string) => {
+    if (!libraryId) {
+      throw new Error("Select a library before creating a group.");
+    }
+
+    if (isWorkspacePersisted) {
+      const created = await paperMemoryApi.createPaperGroup(
+        libraryId,
+        { name: name.trim(), description: description.trim() },
+        installSettings.apiBaseUrl,
+      );
+      const group = mapApiPaperGroup(created);
+      setPaperGroups((currentGroups) => [group, ...currentGroups.filter((item) => item.id !== group.id)]);
+      setLibraries((currentLibraries) =>
+        currentLibraries.map((library) =>
+          library.id === libraryId && !library.groupIds.includes(group.id)
+            ? { ...library, groupIds: [group.id, ...library.groupIds], updatedAt: group.updatedAt }
+            : library,
+        ),
+      );
+      setActiveLibraryId(libraryId);
+      setActiveGroupId(group.id);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const group: PaperGroup = {
+      id: `group-${Date.now()}`,
+      libraryId,
+      name: name.trim(),
+      description: description.trim(),
+      paperIds: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    setPaperGroups((currentGroups) => [group, ...currentGroups]);
+    setLibraries((currentLibraries) =>
+      currentLibraries.map((library) =>
+        library.id === libraryId
+          ? { ...library, groupIds: [group.id, ...library.groupIds], updatedAt: now }
+          : library,
+      ),
+    );
+    setActiveLibraryId(libraryId);
+    setActiveGroupId(group.id);
   };
 
   const selectLibrary = async (libraryId: string) => {
     const existingConversation = conversations.find(
       (conversation) => conversation.libraryId === libraryId,
     );
+    const firstGroup = paperGroups.find((group) => group.libraryId === libraryId);
     setActiveLibraryId(libraryId);
+    setActiveGroupId(firstGroup?.id ?? "");
 
     if (existingConversation) {
       setActiveConversationId(existingConversation.id);
@@ -458,7 +526,16 @@ export function WorkspaceClient() {
     setActiveConversationId(conversation.id);
   };
 
-  const loadWorkspace = async (assignment?: { paperId: string; libraryId: string }) => {
+  const selectGroup = (groupId: string) => {
+    const group = paperGroups.find((item) => item.id === groupId);
+    if (!group) {
+      return;
+    }
+    setActiveLibraryId(group.libraryId);
+    setActiveGroupId(group.id);
+  };
+
+  const loadWorkspace = async (assignment?: { paperId: string; libraryId: string; groupId?: string }) => {
     setApiStatus({
       connection: "checking",
       label: "Checking API",
@@ -499,7 +576,15 @@ export function WorkspaceClient() {
             mappedConversations.find(
               (conversation) => conversation.libraryId === nextActiveLibraryId,
             ));
+      const nextActiveLibraryGroups = mappedGroups.filter((group) => group.libraryId === nextActiveLibraryId);
+      const nextActiveGroupId =
+        assignment?.groupId && nextActiveLibraryGroups.some((group) => group.id === assignment.groupId)
+          ? assignment.groupId
+          : nextActiveLibraryGroups.some((group) => group.id === activeGroupId)
+            ? activeGroupId
+            : (nextActiveLibraryGroups[0]?.id ?? "");
       setActiveLibraryId(nextActiveLibraryId);
+      setActiveGroupId(nextActiveGroupId);
       setActiveConversationId(nextConversation?.id ?? "");
       setApiStatus({
         connection: "online",
@@ -554,10 +639,13 @@ export function WorkspaceClient() {
       );
       const uploadedPaper = mapApiPaper(response.paper);
       const libraryId = activeLibrary?.id ?? activeLibraryId;
+      const groupId = activeGroup?.id;
       const nextLibraryPaperIds = activeLibrary?.paperIds.includes(uploadedPaper.id)
         ? activeLibrary.paperIds
         : [uploadedPaper.id, ...(activeLibrary?.paperIds ?? [])];
-      if (isWorkspacePersisted && libraryId) {
+      if (isWorkspacePersisted && groupId) {
+        await paperMemoryApi.movePaperToGroup(groupId, uploadedPaper.id, installSettings.apiBaseUrl);
+      } else if (isWorkspacePersisted && libraryId) {
         await paperMemoryApi.updateLibrary(
           libraryId,
           { paper_ids: nextLibraryPaperIds },
@@ -575,11 +663,20 @@ export function WorkspaceClient() {
             : library,
         ),
       );
+      if (!isWorkspacePersisted && groupId) {
+        setPaperGroups((currentGroups) =>
+          currentGroups.map((group) =>
+            group.id === groupId
+              ? { ...group, paperIds: [uploadedPaper.id, ...group.paperIds], updatedAt: new Date().toISOString() }
+              : group,
+          ),
+        );
+      }
       setUploadMessage(response.message);
       setSelectedFile(null);
       setFileInputKey((currentKey) => currentKey + 1);
       setUploadTitle("");
-      await loadWorkspace({ paperId: uploadedPaper.id, libraryId });
+      await loadWorkspace({ paperId: uploadedPaper.id, libraryId, groupId });
     } catch (error) {
       setUploadError(getErrorMessage(error));
       setApiStatus({
@@ -593,6 +690,51 @@ export function WorkspaceClient() {
     }
   };
 
+  const movePaperToGroup = async (paperId: string, groupId: string) => {
+    if (!isWorkspacePersisted) {
+      const now = new Date().toISOString();
+      setPaperGroups((currentGroups) =>
+        currentGroups.map((group) => {
+          if (group.id === groupId) {
+            return { ...group, paperIds: [paperId, ...group.paperIds.filter((id) => id !== paperId)], updatedAt: now };
+          }
+          if (!group.paperIds.includes(paperId)) {
+            return group;
+          }
+          return { ...group, paperIds: group.paperIds.filter((id) => id !== paperId), updatedAt: now };
+        }),
+      );
+      setActiveGroupId(groupId);
+      return;
+    }
+
+    const updated = await paperMemoryApi.movePaperToGroup(groupId, paperId, installSettings.apiBaseUrl);
+    const updatedGroup = mapApiPaperGroup(updated);
+    setPaperGroups((currentGroups) =>
+      currentGroups.map((group) => {
+        if (group.id === updatedGroup.id) {
+          return updatedGroup;
+        }
+        if (group.libraryId !== updatedGroup.libraryId || !group.paperIds.includes(paperId)) {
+          return group;
+        }
+        return {
+          ...group,
+          paperIds: group.paperIds.filter((id) => id !== paperId),
+          updatedAt: updatedGroup.updatedAt,
+        };
+      }),
+    );
+    setLibraries((currentLibraries) =>
+      currentLibraries.map((library) =>
+        library.id === updatedGroup.libraryId && !library.paperIds.includes(paperId)
+          ? { ...library, paperIds: [paperId, ...library.paperIds], updatedAt: updatedGroup.updatedAt }
+          : library,
+      ),
+    );
+    setActiveGroupId(updatedGroup.id);
+  };
+
   const handleSelectLibrary = (libraryId: string) => {
     const library = libraries.find((item) => item.id === libraryId);
     void selectLibrary(libraryId).catch((error) => {
@@ -600,6 +742,10 @@ export function WorkspaceClient() {
         `${library?.name ?? "The database"} is active, but the default conversation could not be created. ${getErrorMessage(error)}`,
       );
     });
+  };
+
+  const handleSelectGroup = (groupId: string) => {
+    selectGroup(groupId);
   };
 
   const handleSelectConversation = (conversationId: string) => {
@@ -614,174 +760,84 @@ export function WorkspaceClient() {
 
   return (
     <main className="app-shell">
-      <nav className="product-nav" aria-label="PaperMemory navigation">
-        <button className="brand-mark" type="button" onClick={() => setActiveView("research")}>
-          <span className="brand-mark__glyph" aria-hidden="true">PM</span>
-          <span>PaperMemory</span>
-        </button>
-        <div className="product-nav__links" role="tablist" aria-label="Workspace views">
-          <button
-            className={activeView === "research" ? "product-nav__link product-nav__link--active" : "product-nav__link"}
-            type="button"
-            role="tab"
-            aria-selected={activeView === "research"}
-            onClick={() => setActiveView("research")}
-          >
-            Workspace
-          </button>
-          <button
-            className={activeView === "settings" ? "product-nav__link product-nav__link--active" : "product-nav__link"}
-            type="button"
-            role="tab"
-            aria-selected={activeView === "settings"}
-            onClick={() => setActiveView("settings")}
-          >
-            Settings
-          </button>
-        </div>
-        <div className="product-nav__status" aria-label="API status">
-          <span className={`status-dot status-dot--${apiStatus.connection}`} aria-hidden="true" />
-          <span>{apiStatus.label}</span>
-        </div>
-      </nav>
-
-      <section className="hero-section" aria-labelledby="hero-title">
-        <div className="hero-section__copy">
-          <p className="hero-kicker">Local-first visual RAG for serious reading</p>
-          <h1 id="hero-title">A research memory that sees the page, not just the text.</h1>
-          <p className="hero-section__lead">
-            Upload papers, retrieve visual page evidence, and ask model-backed questions across a private local library.
-          </p>
-          <div className="hero-actions">
-            <button className="button button--primary button--hero" type="button" onClick={() => setActiveView("research")}>
-              Open workspace
-            </button>
-            <button className="button button--subtle button--hero" type="button" onClick={() => setActiveView("settings")}>
-              Configure models
-            </button>
-          </div>
-        </div>
-
-        <div className="hero-command" aria-label="Active research command center">
-          <div className="hero-command__top">
-            <div>
-              <p className="eyebrow">Active database</p>
-              <h2>{activeLibrary?.name ?? "Research database"}</h2>
-            </div>
-            <span className="hero-command__pill">{isWorkspacePersisted ? "Local sync" : "Demo mode"}</span>
-          </div>
-          <div className="hero-command__prompt">
-            <span aria-hidden="true">Ask</span>
-            <p>{question.trim() || "What does this paper prove, and where is the evidence?"}</p>
-          </div>
-          <div className="hero-metrics">
-            {workspaceMetrics.map((metric) => (
-              <div className="hero-metric" key={metric.label}>
-                <strong>{metric.value}</strong>
-                <span>{metric.label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="hero-evidence-strip" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-      </section>
-
-      <section
-        className={`workspace-grid workspace-grid--${activeView}`}
-        aria-label="PaperMemory workspace"
-      >
+      <section className="workspace-shell" aria-label="PaperMemory workspace">
         <ResearchSidebar
           libraries={libraries}
           conversations={conversations}
+          groups={paperGroups}
           papers={papers}
           activeLibraryId={activeLibrary?.id ?? activeLibraryId}
           activeConversationId={activeConversation?.id ?? activeConversationId}
+          activeGroupId={activeGroup?.id ?? activeGroupId}
           activeView={activeView}
           apiLabel={apiStatus.label}
           apiConnection={apiStatus.connection}
           isPersisted={isWorkspacePersisted}
           onViewChange={setActiveView}
           onSelectLibrary={handleSelectLibrary}
+          onSelectGroup={handleSelectGroup}
           onSelectConversation={handleSelectConversation}
           onCreateConversation={handleCreateConversation}
           onCreateLibrary={createLibrary}
+          onCreateGroup={createGroup}
         />
 
-        {activeView === "research" ? (
-          <>
-            <div className="workspace-main">
-              <PaperUploadPanel
-                title={uploadTitle}
-                selectedFile={selectedFile}
-                fileInputKey={fileInputKey}
-                isUploading={isUploading}
-                message={uploadMessage}
-                error={uploadError}
-                onTitleChange={setUploadTitle}
-                onFileChange={setSelectedFile}
-                onUpload={handleUpload}
-              />
-              <ChatPanel
-                messages={messages}
-                question={question}
-                isSubmitting={isChatSubmitting}
-                title={activeConversation?.title ?? "Research chat"}
-                contextLabel={activeLibrary?.name ?? "Research database"}
-                libraryDescription={
-                  activeLibrary?.description ?? "Ask questions over the active paper database."
-                }
-                error={chatError}
-                onQuestionChange={setQuestion}
-                onSubmit={handleSubmitQuestion}
-                onReset={resetChat}
-                onSearchEvidence={handleSearchEvidence}
-              />
-            </div>
-
-            <aside
-              className="side-stack workspace-aside"
-              aria-label="Active database and retrieval evidence"
-            >
-              <section
-                className="panel active-library-panel"
-                aria-labelledby="active-library-title"
-              >
-                <div className="panel__header">
-                  <div>
-                    <p className="eyebrow">Library scope</p>
-                    <h2 id="active-library-title">{activeLibrary?.name ?? "Research database"}</h2>
-                    <p>{apiStatus.detail}</p>
-                    <p className="small-muted">
-                      {activeLibraryGroups.length} paper groups in this local database.
-                    </p>
-                  </div>
-                </div>
-                <div className="panel__body">
-                  <PaperLibrary papers={activeLibraryPapers} embedded />
-                </div>
-              </section>
-              <EvidencePanel
-                evidence={evidence}
-                paperTitles={paperTitles}
-                note={evidenceNote}
-                apiBaseUrl={installSettings.apiBaseUrl}
-              />
-            </aside>
-          </>
-        ) : (
-          <SettingsView
-            modelSettings={settings}
-            installSettings={installSettings}
-            apiDetail={apiStatus.detail}
-            onModelSettingsChange={setSettings}
-            onInstallSettingsChange={setInstallSettings}
-          />
-        )}
+        <div className="workspace-content">
+          {activeView === "home" ? (
+            <HomeView
+              activeLibrary={activeLibrary}
+              activeGroup={activeGroup}
+              papers={activeLibraryPapers}
+              groups={activeLibraryGroups}
+              isPersisted={isWorkspacePersisted}
+              onViewChange={setActiveView}
+            />
+          ) : null}
+          {activeView === "chat" ? (
+            <ChatView
+              activeGroup={activeGroup}
+              activeGroupPapers={activeGroupPapers}
+              messages={messages}
+              question={question}
+              isSubmitting={isChatSubmitting}
+              error={chatError}
+              evidence={evidence}
+              evidenceNote={evidenceNote}
+              paperTitles={paperTitles}
+              apiBaseUrl={installSettings.apiBaseUrl}
+              onQuestionChange={setQuestion}
+              onSubmit={handleSubmitQuestion}
+              onReset={resetChat}
+              onSearchEvidence={handleSearchEvidence}
+            />
+          ) : null}
+          {activeView === "papers" ? (
+            <PaperManagerView
+              activeGroup={activeGroup}
+              groups={activeLibraryGroups}
+              papers={activeGroupPapers}
+              uploadTitle={uploadTitle}
+              selectedFile={selectedFile}
+              fileInputKey={fileInputKey}
+              isUploading={isUploading}
+              uploadMessage={uploadMessage}
+              uploadError={uploadError}
+              onTitleChange={setUploadTitle}
+              onFileChange={setSelectedFile}
+              onUpload={handleUpload}
+              onMovePaper={movePaperToGroup}
+            />
+          ) : null}
+          {activeView === "settings" ? (
+            <SettingsView
+              modelSettings={settings}
+              installSettings={installSettings}
+              apiDetail={apiStatus.detail}
+              onModelSettingsChange={setSettings}
+              onInstallSettingsChange={setInstallSettings}
+            />
+          ) : null}
+        </div>
       </section>
     </main>
   );

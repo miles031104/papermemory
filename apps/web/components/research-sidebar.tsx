@@ -1,25 +1,40 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 
-import type { PaperSummary, ResearchConversation, ResearchLibrary } from "@/lib/types";
-
-export type WorkspaceView = "research" | "settings";
+import type {
+  PaperGroup,
+  PaperSummary,
+  ResearchConversation,
+  ResearchLibrary,
+  WorkspaceView,
+} from "@/lib/types";
 
 interface ResearchSidebarProps {
   libraries: ResearchLibrary[];
   conversations: ResearchConversation[];
+  groups: PaperGroup[];
   papers: PaperSummary[];
   activeLibraryId: string;
   activeConversationId: string;
+  activeGroupId: string;
   activeView: WorkspaceView;
   apiLabel: string;
   apiConnection: "checking" | "online" | "offline";
   isPersisted: boolean;
   onViewChange: (view: WorkspaceView) => void;
   onSelectLibrary: (libraryId: string) => void;
+  onSelectGroup: (groupId: string) => void;
   onSelectConversation: (conversationId: string) => void;
   onCreateConversation: () => void;
   onCreateLibrary: (name: string, description: string) => Promise<void>;
+  onCreateGroup: (libraryId: string, name: string, description: string) => Promise<void>;
 }
+
+const workspaceViews: Array<{ id: WorkspaceView; label: string }> = [
+  { id: "home", label: "Home" },
+  { id: "chat", label: "Chat" },
+  { id: "papers", label: "Paper Manager" },
+  { id: "settings", label: "Settings" },
+];
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -30,39 +45,76 @@ function formatTime(value: string) {
 
   return new Intl.DateTimeFormat("en", {
     month: "short",
-    day: "numeric"
+    day: "numeric",
   }).format(date);
 }
 
 export function ResearchSidebar({
   libraries,
   conversations,
+  groups,
   papers,
   activeLibraryId,
   activeConversationId,
+  activeGroupId,
   activeView,
   apiLabel,
   apiConnection,
   isPersisted,
   onViewChange,
   onSelectLibrary,
+  onSelectGroup,
   onSelectConversation,
   onCreateConversation,
-  onCreateLibrary
+  onCreateLibrary,
+  onCreateGroup,
 }: ResearchSidebarProps) {
   const [isCreatingDatabase, setIsCreatingDatabase] = useState(false);
   const [databaseName, setDatabaseName] = useState("");
   const [databaseDescription, setDatabaseDescription] = useState("");
   const [isSubmittingDatabase, setIsSubmittingDatabase] = useState(false);
   const [databaseError, setDatabaseError] = useState<string | null>(null);
-  const paperCountByLibrary = Object.fromEntries(
-    libraries.map((library) => [
-      library.id,
-      library.paperIds.filter((paperId) => papers.some((paper) => paper.id === paperId)).length
-    ])
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+  const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
+  const [groupError, setGroupError] = useState<string | null>(null);
+
+  const paperCountByLibrary = useMemo(
+    () =>
+      Object.fromEntries(
+        libraries.map((library) => [
+          library.id,
+          library.paperIds.filter((paperId) => papers.some((paper) => paper.id === paperId)).length,
+        ]),
+      ),
+    [libraries, papers],
   );
+
+  const paperCountByGroup = useMemo(
+    () =>
+      Object.fromEntries(
+        groups.map((group) => [
+          group.id,
+          group.paperIds.filter((paperId) => papers.some((paper) => paper.id === paperId)).length,
+        ]),
+      ),
+    [groups, papers],
+  );
+
+  const groupsByLibrary = useMemo(
+    () =>
+      Object.fromEntries(
+        libraries.map((library) => [
+          library.id,
+          groups.filter((group) => group.libraryId === library.id),
+        ]),
+      ),
+    [groups, libraries],
+  );
+
   const visibleConversations = conversations.filter(
-    (conversation) => conversation.libraryId === activeLibraryId
+    (conversation) => conversation.libraryId === activeLibraryId,
   );
 
   const handleSubmitDatabase = async (event: FormEvent<HTMLFormElement>) => {
@@ -87,6 +139,32 @@ export function ResearchSidebar({
     }
   };
 
+  const handleSubmitGroup = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedName = groupName.trim();
+    if (!activeLibraryId) {
+      setGroupError("Select a library first.");
+      return;
+    }
+    if (!trimmedName) {
+      setGroupError("Name is required.");
+      return;
+    }
+
+    setIsSubmittingGroup(true);
+    setGroupError(null);
+    try {
+      await onCreateGroup(activeLibraryId, trimmedName, groupDescription.trim());
+      setGroupName("");
+      setGroupDescription("");
+      setIsCreatingGroup(false);
+    } catch (error) {
+      setGroupError(error instanceof Error ? error.message : "Could not create group.");
+    } finally {
+      setIsSubmittingGroup(false);
+    }
+  };
+
   return (
     <aside className="research-sidebar" aria-label="Research databases and conversations">
       <div className="sidebar-brand">
@@ -101,33 +179,27 @@ export function ResearchSidebar({
       </div>
 
       <div className="sidebar-view-nav" role="tablist" aria-label="Workspace views">
-        <button
-          className={`sidebar-view-nav__item${activeView === "research" ? " sidebar-view-nav__item--active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={activeView === "research"}
-          onClick={() => onViewChange("research")}
-        >
-          Workspace
-        </button>
-        <button
-          className={`sidebar-view-nav__item${activeView === "settings" ? " sidebar-view-nav__item--active" : ""}`}
-          type="button"
-          role="tab"
-          aria-selected={activeView === "settings"}
-          onClick={() => onViewChange("settings")}
-        >
-          Settings
-        </button>
+        {workspaceViews.map((view) => (
+          <button
+            className={`sidebar-view-nav__item${activeView === view.id ? " sidebar-view-nav__item--active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeView === view.id}
+            onClick={() => onViewChange(view.id)}
+            key={view.id}
+          >
+            {view.label}
+          </button>
+        ))}
       </div>
 
       <nav className="sidebar-section" aria-labelledby="database-title">
         <div className="sidebar-section__header">
-          <h2 id="database-title">Databases</h2>
+          <h2 id="database-title">Libraries</h2>
           <button
             className="icon-button"
             type="button"
-            aria-label="Create database"
+            aria-label="Create library"
             aria-expanded={isCreatingDatabase}
             onClick={() => {
               setIsCreatingDatabase((current) => !current);
@@ -144,7 +216,7 @@ export function ResearchSidebar({
               <input
                 autoFocus
                 maxLength={120}
-                placeholder="New research database"
+                placeholder="New research library"
                 value={databaseName}
                 onChange={(event) => setDatabaseName(event.target.value)}
               />
@@ -180,22 +252,95 @@ export function ResearchSidebar({
         <div className="sidebar-list" role="list">
           {libraries.map((library) => {
             const isActive = library.id === activeLibraryId;
+            const libraryGroups = groupsByLibrary[library.id] ?? [];
 
             return (
-              <button
-                className={`sidebar-item${isActive ? " sidebar-item--active" : ""}`}
-                key={library.id}
-                type="button"
-                onClick={() => onSelectLibrary(library.id)}
-              >
-                <span className="sidebar-item__title">{library.name}</span>
-                <span className="sidebar-item__meta">
-                  {paperCountByLibrary[library.id] ?? 0} papers
-                </span>
-              </button>
+              <div className="sidebar-tree-node" key={library.id}>
+                <button
+                  className={`sidebar-item${isActive ? " sidebar-item--active" : ""}`}
+                  type="button"
+                  onClick={() => onSelectLibrary(library.id)}
+                >
+                  <span className="sidebar-item__title">{library.name}</span>
+                  <span className="sidebar-item__meta">
+                    {paperCountByLibrary[library.id] ?? 0} papers
+                  </span>
+                </button>
+                {libraryGroups.map((group) => (
+                  <button
+                    className={`sidebar-item sidebar-item--group${
+                      group.id === activeGroupId ? " sidebar-item--active" : ""
+                    }`}
+                    type="button"
+                    key={group.id}
+                    onClick={() => onSelectGroup(group.id)}
+                  >
+                    <span className="sidebar-item__title">{group.name}</span>
+                    <span className="sidebar-item__meta">{paperCountByGroup[group.id] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
             );
           })}
         </div>
+      </nav>
+
+      <nav className="sidebar-section" aria-labelledby="group-title">
+        <div className="sidebar-section__header">
+          <h2 id="group-title">Groups</h2>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Create group"
+            aria-expanded={isCreatingGroup}
+            onClick={() => {
+              setIsCreatingGroup((current) => !current);
+              setGroupError(null);
+            }}
+          >
+            +
+          </button>
+        </div>
+        {isCreatingGroup ? (
+          <form className="sidebar-create-form" onSubmit={handleSubmitGroup}>
+            <label>
+              <span>Name</span>
+              <input
+                autoFocus
+                maxLength={120}
+                placeholder="Related papers"
+                value={groupName}
+                onChange={(event) => setGroupName(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Description</span>
+              <textarea
+                maxLength={500}
+                placeholder="Optional group note"
+                rows={2}
+                value={groupDescription}
+                onChange={(event) => setGroupDescription(event.target.value)}
+              />
+            </label>
+            {groupError ? <p className="inline-alert inline-alert--error">{groupError}</p> : null}
+            <div className="sidebar-create-form__actions">
+              <button
+                className="button button--subtle"
+                type="button"
+                onClick={() => {
+                  setIsCreatingGroup(false);
+                  setGroupError(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button className="button button--primary" type="submit" disabled={isSubmittingGroup}>
+                {isSubmittingGroup ? "Creating" : "Create"}
+              </button>
+            </div>
+          </form>
+        ) : null}
       </nav>
 
       <nav className="sidebar-section sidebar-section--grow" aria-labelledby="conversation-title">
@@ -207,7 +352,7 @@ export function ResearchSidebar({
         </div>
         <div className="sidebar-list" role="list">
           {visibleConversations.length === 0 ? (
-            <p className="small-muted">Create a conversation inside this database.</p>
+            <p className="small-muted">Create a conversation inside this library.</p>
           ) : null}
           {visibleConversations.map((conversation) => {
             const isActive = conversation.id === activeConversationId;
@@ -232,14 +377,8 @@ export function ResearchSidebar({
       <div className="library-entry">
         <p className={`inline-alert ${isPersisted ? "inline-alert--success" : "inline-alert--warning"}`}>
           {isPersisted
-            ? "Databases and conversations are stored in the local JSON workspace."
-            : "Showing mock workspace data. Offline database changes are temporary."}
-        </p>
-        <button className="button button--subtle" type="button" disabled>
-          Papers manager
-        </button>
-        <p className="small-muted">
-          Future page for paper groups, title/author metadata, and generated idea cards.
+            ? "Workspace data is stored in the local JSON workspace."
+            : "Showing mock workspace data. Offline changes are temporary."}
         </p>
       </div>
     </aside>

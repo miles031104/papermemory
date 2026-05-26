@@ -1,12 +1,25 @@
 import { StatusBadge } from "@/components/status-badge";
-import type { PaperSummary } from "@/lib/types";
+import type { PaperGroup, PaperSummary } from "@/lib/types";
 
 interface PaperLibraryProps {
   papers: PaperSummary[];
   embedded?: boolean;
+  groups?: PaperGroup[];
+  activeGroupId?: string;
+  onMovePaper?: (paperId: string, groupId: string) => Promise<void>;
 }
 
-function PaperLibraryBody({ papers }: { papers: PaperSummary[] }) {
+function PaperLibraryBody({
+  papers,
+  groups = [],
+  activeGroupId = "",
+  onMovePaper,
+}: {
+  papers: PaperSummary[];
+  groups?: PaperGroup[];
+  activeGroupId?: string;
+  onMovePaper?: (paperId: string, groupId: string) => Promise<void>;
+}) {
   return (
     <>
       {papers.length === 0 ? <p className="small-muted">No papers in this database yet.</p> : null}
@@ -26,6 +39,26 @@ function PaperLibraryBody({ papers }: { papers: PaperSummary[] }) {
               <div className="progress-bar" style={{ width: `${paper.progress}%` }} />
             </div>
             <p className="small-muted">{paper.indexSummary}</p>
+            {onMovePaper && groups.length > 0 ? (
+              <label className="paper-move-control">
+                <span>Move group</span>
+                <select
+                  value={activeGroupId}
+                  onChange={(event) => {
+                    const nextGroupId = event.target.value;
+                    if (nextGroupId && nextGroupId !== activeGroupId) {
+                      void onMovePaper(paper.id, nextGroupId);
+                    }
+                  }}
+                >
+                  {groups.map((group) => (
+                    <option value={group.id} key={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -33,9 +66,22 @@ function PaperLibraryBody({ papers }: { papers: PaperSummary[] }) {
   );
 }
 
-export function PaperLibrary({ papers, embedded = false }: PaperLibraryProps) {
+export function PaperLibrary({
+  papers,
+  embedded = false,
+  groups,
+  activeGroupId,
+  onMovePaper,
+}: PaperLibraryProps) {
   if (embedded) {
-    return <PaperLibraryBody papers={papers} />;
+    return (
+      <PaperLibraryBody
+        papers={papers}
+        groups={groups}
+        activeGroupId={activeGroupId}
+        onMovePaper={onMovePaper}
+      />
+    );
   }
 
   return (
@@ -47,7 +93,12 @@ export function PaperLibrary({ papers, embedded = false }: PaperLibraryProps) {
         </div>
       </div>
       <div className="panel__body">
-        <PaperLibraryBody papers={papers} />
+        <PaperLibraryBody
+          papers={papers}
+          groups={groups}
+          activeGroupId={activeGroupId}
+          onMovePaper={onMovePaper}
+        />
       </div>
     </section>
   );
