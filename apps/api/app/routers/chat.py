@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+import json
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app.core.config import Settings, get_settings
 from app.core.paths import StoragePaths
@@ -21,9 +25,29 @@ def get_chat_service(settings: Settings = Depends(get_settings)) -> ChatService:
     )
 
 
+async def _sse_stream(service: ChatService, request: ChatRequest):
+    """Async generator that yields SSE-formatted strings."""
+    async for chunk in service.answer_stream(request):
+        if isinstance(chunk, str):
+            payload = json.dumps({"type": "delta", "content": chunk})
+        else:
+            payload = json.dumps({"type": "done", **chunk}, default=str)
+        yield f"data: {payload}\n\n"
+
+
 @router.post("", response_model=ChatResponse)
-async def chat(request: ChatRequest, service: ChatService = Depends(get_chat_service)) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    stream: Annotated[bool, Query()] = False,
+    service: ChatService = Depends(get_chat_service),
+) -> ChatResponse | StreamingResponse:
     try:
+        if stream:
+            return StreamingResponse(
+                _sse_stream(service, request),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
         return await service.answer(request)
     except VisRAGUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

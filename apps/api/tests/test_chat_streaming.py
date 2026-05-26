@@ -129,17 +129,11 @@ def test_chat_stream_endpoint_returns_sse_with_delta_and_done_frames():
     from app.main import create_app
     from app.routers import chat as chat_router
 
-    class SseStreamingGateway(ModelGateway):
+    class SseStreamingGateway(StreamingGateway):
+        """StreamingGateway pre-configured with SSE tokens; no httpx calls."""
+
         def __init__(self) -> None:
-            pass
-
-        async def generate_stream(self, messages, model=None, base_url=None, api_key=None, temperature=0.2):
-            for token in ["SSE ", "token"]:
-                yield token
-
-        def build_user_content(self, text, image_paths, enable_image_context=None, max_evidence_images=None):
-            from app.services.model_gateway import BuiltUserContent
-            return BuiltUserContent(content=text, included_image_count=0)
+            super().__init__(tokens=["SSE ", "token"])
 
     def _make_sse_chat_service() -> ChatService:
         return ChatService(
