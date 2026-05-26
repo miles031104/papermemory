@@ -218,8 +218,12 @@ def test_ensure_defaults_preserves_existing_libraries_when_other_files_are_missi
     assert body["libraries"][0]["id"] == "library-custom"
     assert body["libraries"][0]["name"] == "Preserve me"
     assert body["conversations"][0]["library_id"] == "library-custom"
-    assert body["paper_groups"] == []
-    assert body["libraries"][0]["group_ids"] == []
+    assert len(body["paper_groups"]) == 1
+    group = body["paper_groups"][0]
+    assert group["library_id"] == "library-custom"
+    assert group["name"] == "Ungrouped uploads"
+    assert group["paper_ids"] == []
+    assert body["libraries"][0]["group_ids"] == [group["id"]]
 
 
 def test_ensure_defaults_repairs_missing_paper_groups_without_unreferenced_groups(tmp_path: Path) -> None:
@@ -248,8 +252,102 @@ def test_ensure_defaults_repairs_missing_paper_groups_without_unreferenced_group
     assert len(body["libraries"]) == 1
     assert body["libraries"][0]["id"] == "library-custom"
     assert body["libraries"][0]["name"] == "Preserve me"
-    assert body["libraries"][0]["group_ids"] == []
-    assert body["paper_groups"] == []
+    assert len(body["paper_groups"]) == 1
+    group = body["paper_groups"][0]
+    assert group["library_id"] == "library-custom"
+    assert group["name"] == "Ungrouped uploads"
+    assert group["paper_ids"] == []
+    assert body["libraries"][0]["group_ids"] == [group["id"]]
+
+
+def test_workspace_repair_creates_default_group_for_empty_library_without_groups(tmp_path: Path) -> None:
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True)
+    now = datetime.now(UTC).isoformat()
+    (workspace_dir / "libraries.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "library-empty",
+                    "name": "Empty",
+                    "description": "",
+                    "paper_ids": [],
+                    "group_ids": [],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (workspace_dir / "conversations.json").write_text("[]", encoding="utf-8")
+    (workspace_dir / "paper_groups.json").write_text("[]", encoding="utf-8")
+
+    client = _client(tmp_path)
+    body = client.get("/workspace").json()
+
+    library = body["libraries"][0]
+    assert library["id"] == "library-empty"
+    assert len(body["paper_groups"]) == 1
+    group = body["paper_groups"][0]
+    assert group["library_id"] == "library-empty"
+    assert group["name"] == "Ungrouped uploads"
+    assert group["paper_ids"] == []
+    assert library["group_ids"] == [group["id"]]
+
+
+def test_workspace_repair_rebuilds_library_group_ids_in_repaired_group_order(tmp_path: Path) -> None:
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True)
+    now = datetime.now(UTC).isoformat()
+    (workspace_dir / "libraries.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "library-custom",
+                    "name": "Custom",
+                    "description": "",
+                    "paper_ids": [],
+                    "group_ids": ["group-second", "group-first"],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (workspace_dir / "conversations.json").write_text("[]", encoding="utf-8")
+    (workspace_dir / "paper_groups.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "group-first",
+                    "library_id": "library-custom",
+                    "name": "First",
+                    "description": "",
+                    "paper_ids": [],
+                    "created_at": now,
+                    "updated_at": now,
+                },
+                {
+                    "id": "group-second",
+                    "library_id": "library-custom",
+                    "name": "Second",
+                    "description": "",
+                    "paper_ids": [],
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    client = _client(tmp_path)
+    body = client.get("/workspace").json()
+
+    assert [group["id"] for group in body["paper_groups"]] == ["group-first", "group-second"]
+    assert body["libraries"][0]["group_ids"] == ["group-first", "group-second"]
 
 
 def test_workspace_repair_assigns_library_papers_to_default_group(tmp_path: Path) -> None:

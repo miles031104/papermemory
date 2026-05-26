@@ -329,6 +329,7 @@ class WorkspaceStore:
 
             if repaired_paper_ids != group.paper_ids:
                 group = group.model_copy(update={"paper_ids": repaired_paper_ids, "updated_at": now})
+                changed = True
             repaired_groups.append(group)
             library_group_ids[group.library_id].append(group.id)
 
@@ -336,29 +337,48 @@ class WorkspaceStore:
             ungrouped_paper_ids = [
                 paper_id for paper_id in library.paper_ids if paper_id not in assigned_papers_by_library[library.id]
             ]
-            if not ungrouped_paper_ids:
+            if not ungrouped_paper_ids and library_group_ids[library.id]:
                 continue
 
-            default_group = self._default_group_for_library(
-                library=library,
-                existing_group_ids={group.id for group in repaired_groups},
-                paper_ids=ungrouped_paper_ids,
-                now=now,
-            )
-            repaired_groups.append(default_group)
-            library_group_ids[library.id].append(default_group.id)
+            target_group_id = None
+            if library_group_ids[library.id]:
+                default_group = next(
+                    (
+                        group
+                        for group in repaired_groups
+                        if group.library_id == library.id and group.name == DEFAULT_GROUP_NAME
+                    ),
+                    None,
+                )
+                target_group_id = default_group.id if default_group is not None else library_group_ids[library.id][0]
+
+            if target_group_id is None:
+                default_group = self._default_group_for_library(
+                    library=library,
+                    existing_group_ids={group.id for group in repaired_groups},
+                    paper_ids=ungrouped_paper_ids,
+                    now=now,
+                )
+                repaired_groups.append(default_group)
+                library_group_ids[library.id].append(default_group.id)
+            elif ungrouped_paper_ids:
+                repaired_groups = [
+                    group.model_copy(
+                        update={
+                            "paper_ids": self._dedupe([*group.paper_ids, *ungrouped_paper_ids]),
+                            "updated_at": now,
+                        }
+                    )
+                    if group.id == target_group_id
+                    else group
+                    for group in repaired_groups
+                ]
             assigned_papers_by_library[library.id].update(ungrouped_paper_ids)
             changed = True
 
         repaired_libraries: list[ResearchLibrary] = []
         for library in workspace.libraries:
-            repaired_group_ids = self._dedupe(
-                [
-                    group_id
-                    for group_id in [*library.group_ids, *library_group_ids[library.id]]
-                    if group_id in library_group_ids[library.id]
-                ]
-            )
+            repaired_group_ids = self._dedupe(library_group_ids[library.id])
             if repaired_group_ids != library.group_ids:
                 library = library.model_copy(update={"group_ids": repaired_group_ids, "updated_at": now})
                 changed = True
