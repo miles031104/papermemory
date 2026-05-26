@@ -78,7 +78,7 @@ export function EvidencePanel({ evidence, paperTitles = {}, note, apiBaseUrl }: 
         ) : null}
         <ol className="evidence-list" aria-label="Retrieved page evidence">
           {normalizedEvidence.map((item) => (
-            <li className="evidence-item" key={item.id}>
+            <li className="evidence-item" key={item.id} id={`evidence-${item.paperId}-${item.page}`}>
               <div className="evidence-item__top">
                 <div>
                   <p className="evidence-title">{item.paperTitle}</p>
