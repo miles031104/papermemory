@@ -131,6 +131,12 @@ def test_create_and_update_paper_group(tmp_path: Path) -> None:
     assert updated.json()["description"] == "Read first"
     assert updated.json()["paper_ids"] == ["paper-3"]
 
+    workspace = client.get("/workspace").json()
+    default_group = next(group for group in workspace["paper_groups"] if group["id"] == "group-inbox")
+    custom_group = next(group for group in workspace["paper_groups"] if group["id"] == group_id)
+    assert default_group["paper_ids"] == []
+    assert custom_group["paper_ids"] == ["paper-3"]
+
 
 def test_assign_new_paper_to_custom_library_does_not_add_it_to_inbox(tmp_path: Path) -> None:
     _write_ready_paper(tmp_path, "paper-old")

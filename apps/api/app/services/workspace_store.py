@@ -168,6 +168,13 @@ class WorkspaceStore:
         workspace.libraries[library_index] = library.model_copy(
             update={"group_ids": self._dedupe([*library.group_ids, group.id]), "updated_at": now}
         )
+        self._remove_paper_ids_from_other_groups(
+            workspace=workspace,
+            library_id=library_id,
+            keeper_group_id=group.id,
+            paper_ids=paper_ids,
+            now=now,
+        )
         self._write_workspace(workspace)
         return group
 
@@ -194,6 +201,13 @@ class WorkspaceStore:
             }
         )
         workspace.paper_groups[index] = updated
+        self._remove_paper_ids_from_other_groups(
+            workspace=workspace,
+            library_id=group.library_id,
+            keeper_group_id=group.id,
+            paper_ids=validated_paper_ids,
+            now=updated.updated_at,
+        )
         self._write_workspace(workspace)
         return updated
 
@@ -503,6 +517,28 @@ class WorkspaceStore:
                         status_code=400,
                         detail="Library paper_ids cannot remove papers that are still used by a paper group.",
                     )
+
+    def _remove_paper_ids_from_other_groups(
+        self,
+        workspace: WorkspaceResponse,
+        library_id: str,
+        keeper_group_id: str,
+        paper_ids: list[str],
+        now: datetime,
+    ) -> None:
+        if not paper_ids:
+            return
+
+        paper_id_set = set(paper_ids)
+        for index, group in enumerate(workspace.paper_groups):
+            if group.library_id != library_id or group.id == keeper_group_id:
+                continue
+
+            next_paper_ids = [paper_id for paper_id in group.paper_ids if paper_id not in paper_id_set]
+            if next_paper_ids != group.paper_ids:
+                workspace.paper_groups[index] = group.model_copy(
+                    update={"paper_ids": next_paper_ids, "updated_at": now}
+                )
 
     def _atomic_write_json(self, path: Path, payload: object) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
