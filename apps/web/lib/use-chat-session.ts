@@ -6,13 +6,19 @@ import { paperMemoryApi } from "@/lib/api";
 import type {
   ApiChatRequest,
   ApiPageEvidence,
+  ApiWorkspaceMessage,
   ChatMessage,
+  Citation,
   EvidenceItem,
   InstallSettings,
   ModelSettings,
   ResearchConversation,
   ResearchLibrary,
 } from "@/lib/types";
+
+function mapWorkspaceCitation(c: ApiWorkspaceMessage["citations"][number]): Citation {
+  return { paperId: c.paper_id, label: c.label, page: c.page };
+}
 
 interface UseChatSessionOptions {
   activeConversation: ResearchConversation | undefined;
@@ -133,14 +139,9 @@ export function useChatSession({
       content: m.content,
     }));
 
-    // Pre-search to populate the evidence panel while the LLM streams.
+    // Show a placeholder note while the backend retrieval runs.
     if (readyPaperIds.length > 0) {
-      try {
-        await doSearchEvidence(trimmedQuestion);
-      } catch {
-        setEvidence([]);
-        setEvidenceNote("Retrieval failed before generation; answer will not be paper-grounded.");
-      }
+      setEvidenceNote("Searching for relevant pages…");
     } else {
       setEvidence([]);
       setEvidenceNote("Conversation mode: no ready papers in the active database.");
@@ -167,8 +168,15 @@ export function useChatSession({
         (token) => {
           setStreamingContent((prev) => prev + token);
         },
+        // Early evidence frame: update the panel as soon as retrieval finishes,
+        // before the first LLM token arrives.
+        (earlyEvidence, earlyNote) => {
+          setEvidence(earlyEvidence);
+          setEvidenceNote(earlyNote);
+        },
       );
 
+      // Final evidence update from the done frame (may differ after retry).
       setEvidence(done.evidence);
       setEvidenceNote(done.note);
 
@@ -185,7 +193,21 @@ export function useChatSession({
         citations,
       };
 
-      const nextMessages = [...nextUserMessages, assistantMessage];
+      let nextMessages = [...nextUserMessages, assistantMessage];
+
+      // If the backend produced a conversation summary (history exceeded the
+      // context window), prepend it so future turns retain earlier conclusions.
+      if (done.summary_message) {
+        const sm = done.summary_message;
+        const summaryMsg: ChatMessage = {
+          id: sm.id,
+          role: sm.role as "user" | "assistant",
+          content: sm.content,
+          citations: sm.citations.map(mapWorkspaceCitation),
+        };
+        nextMessages = [summaryMsg, ...nextMessages];
+      }
+
       onMessagesChange(conversationId, nextMessages);
       if (isWorkspacePersisted) {
         await onPersistMessages(conversationId, nextMessages);
@@ -209,7 +231,6 @@ export function useChatSession({
     isWorkspacePersisted,
     onMessagesChange,
     onPersistMessages,
-    doSearchEvidence,
   ]);
 
   const reset = useCallback(() => {

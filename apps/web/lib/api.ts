@@ -164,6 +164,7 @@ export const paperMemoryApi = {
     request: ApiChatRequest,
     baseUrl: string,
     onDelta: (token: string) => void,
+    onEvidence?: (evidence: ApiPageEvidence[], note: string | null) => void,
   ): Promise<ApiChatStreamDone> {
     const apiBaseUrl = baseUrl?.trim() || defaultApiBaseUrl;
     const response = await fetch(
@@ -209,15 +210,19 @@ export const paperMemoryApi = {
             evidence?: ApiPageEvidence[];
             note?: string | null;
             stats?: Record<string, unknown>;
+            summary_message?: import("@/lib/types").ApiWorkspaceMessage | null;
           };
           if (parsed.type === "delta" && parsed.content) {
             onDelta(parsed.content);
+          } else if (parsed.type === "evidence") {
+            onEvidence?.(parsed.evidence ?? [], parsed.note ?? null);
           } else if (parsed.type === "done") {
             result = {
               answer: parsed.answer ?? "",
               evidence: parsed.evidence ?? [],
               note: parsed.note ?? null,
               stats: parsed.stats ?? {},
+              summary_message: parsed.summary_message ?? null,
             };
           }
         } catch {

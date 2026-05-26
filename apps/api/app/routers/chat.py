@@ -26,10 +26,22 @@ def get_chat_service(settings: Settings = Depends(get_settings)) -> ChatService:
 
 
 async def _sse_stream(service: ChatService, request: ChatRequest):
-    """Async generator that yields SSE-formatted strings."""
+    """Async generator that yields SSE-formatted strings.
+
+    Frame types emitted:
+    - ``evidence``  — retrieval finished, evidence available (before first token)
+    - ``delta``     — one LLM token
+    - ``done``      — generation complete; includes answer, evidence, stats,
+                      and optional summary_message
+    """
     async for chunk in service.answer_stream(request):
         if isinstance(chunk, str):
             payload = json.dumps({"type": "delta", "content": chunk})
+        elif "evidence_ready" in chunk:
+            payload = json.dumps(
+                {"type": "evidence", "evidence": chunk["evidence_ready"], "note": chunk.get("note")},
+                default=str,
+            )
         else:
             payload = json.dumps({"type": "done", **chunk}, default=str)
         yield f"data: {payload}\n\n"

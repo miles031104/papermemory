@@ -254,4 +254,5 @@ export interface ApiChatStreamDone {
   evidence: ApiPageEvidence[];
   note: string | null;
   stats: Record<string, unknown>;
+  summary_message?: ApiWorkspaceMessage | null;
 }
