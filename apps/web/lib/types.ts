@@ -248,3 +248,10 @@ export interface ApiWorkspaceResponse {
   conversations: ApiResearchConversation[];
   paper_groups: ApiPaperGroup[];
 }
+
+export interface ApiChatStreamDone {
+  answer: string;
+  evidence: ApiPageEvidence[];
+  note: string | null;
+  stats: Record<string, unknown>;
+}

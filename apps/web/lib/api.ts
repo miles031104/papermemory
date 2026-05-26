@@ -1,7 +1,9 @@
 import type {
   ApiChatRequest,
   ApiChatResponse,
+  ApiChatStreamDone,
   ApiHealthResponse,
+  ApiPageEvidence,
   ApiPaperListResponse,
   ApiPaperUploadResponse,
   ApiRetrievalResponse,
@@ -156,5 +158,77 @@ export const paperMemoryApi = {
       },
       baseUrl
     });
-  }
+  },
+
+  async streamChat(
+    request: ApiChatRequest,
+    baseUrl: string,
+    onDelta: (token: string) => void,
+  ): Promise<ApiChatStreamDone> {
+    const apiBaseUrl = baseUrl?.trim() || defaultApiBaseUrl;
+    const response = await fetch(
+      `${apiBaseUrl.replace(/\/$/, "")}/chat?stream=true`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    );
+
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`PaperMemory API ${response.status}: ${detail || response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error("Streaming response body is unavailable.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let result: ApiChatStreamDone | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+        const dataStr = line.slice(5).trim();
+        try {
+          const parsed = JSON.parse(dataStr) as {
+            type: string;
+            content?: string;
+            answer?: string;
+            evidence?: ApiPageEvidence[];
+            note?: string | null;
+            stats?: Record<string, unknown>;
+          };
+          if (parsed.type === "delta" && parsed.content) {
+            onDelta(parsed.content);
+          } else if (parsed.type === "done") {
+            result = {
+              answer: parsed.answer ?? "",
+              evidence: parsed.evidence ?? [],
+              note: parsed.note ?? null,
+              stats: parsed.stats ?? {},
+            };
+          }
+        } catch {
+          // skip malformed SSE lines
+        }
+      }
+    }
+
+    if (!result) {
+      throw new Error("Stream ended without a done frame.");
+    }
+    return result;
+  },
 };
