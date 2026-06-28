@@ -1,0 +1,15 @@
+\section{Reproducibility Commands and Environment}
+\label{app:reproducibility}
+
+The active repository root is \artifact{D:/codex/papermemory}. The older \artifact{D:/codex/llm\_paper\_assis/papermemory} path is now a junction to this working tree. The Node 0 environment artifact records branch \artifact{codex/papermemory-evidence-agent}, baseline commit \artifact{6884d738df9d685bad4f5a673a7d13a7bc2fb691}, Python 3.12.7, Node.js v22.18.0, and npm 10.9.3 \citep{paperMemoryNode0}.
+
+The final report package was compiled with the local LaTeX helper:
+\begin{verbatim}
+python "C:\Users\Miles CUI\.codex\plugins\cache\openai-bundled\latex\
+0.2.2\scripts\compile_latex.py" D:\codex\papermemory\
+reports\final\main.tex --json
+\end{verbatim}
+
+Earlier nodes recorded the following verification snapshots: Node 1 synthetic retrieval generation and JSON validation; Node 4 BM25 fixture generation; Node 5 hybrid fixture generation; Node 6 chat and evidence UI tests; Node 7 bounded orchestrator tests; Node 8 robustness tests with 11 focused passes; and Node 9 cost-model tests plus report regeneration. The canonical source artifacts for this report are stored under \artifact{reports/final/results/} and \artifact{eval/retrieval/results/}.
+
+The package uses the official \artifact{neurips\_2025.sty} downloaded from the NeurIPS 2025 style link on the Call for Papers page \citep{neurips2025cfp}. The report uses anonymous submission style, not camera-ready or preprint mode.

@@ -9,8 +9,11 @@ from app.core.config import Settings, get_settings
 from app.core.paths import StoragePaths
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat_service import ChatService
+from app.services.evidence_validator import EvidenceValidationError
+from app.services.hybrid_retrieval_service import HybridRetrievalService
 from app.services.model_gateway import ModelGateway
 from app.services.page_image_resolver import PageImageResolver
+from app.services.text_manifest_store import TextManifestStore
 from app.services.vector_store import VectorStore
 from app.services.visrag_service import VisRAGService, VisRAGUnavailable
 
@@ -25,11 +28,20 @@ def _json_default(obj: object) -> object:
 
 
 def get_chat_service(settings: Settings = Depends(get_settings)) -> ChatService:
+    paths = StoragePaths(settings)
+    visrag = VisRAGService(settings=settings)
+    vector_store = VectorStore(settings=settings)
     return ChatService(
-        visrag=VisRAGService(settings=settings),
-        vector_store=VectorStore(settings=settings),
+        visrag=visrag,
+        vector_store=vector_store,
         model_gateway=ModelGateway(settings=settings),
-        page_image_resolver=PageImageResolver(paths=StoragePaths(settings)),
+        page_image_resolver=PageImageResolver(paths=paths),
+        storage_paths=paths,
+        hybrid_retrieval=HybridRetrievalService(
+            visrag=visrag,
+            vector_store=vector_store,
+            manifest_store=TextManifestStore(paths),
+        ),
     )
 
 
@@ -48,7 +60,12 @@ async def _sse_stream(service: ChatService, request: ChatRequest):
                 payload = json.dumps({"type": "delta", "content": chunk})
             elif "evidence_ready" in chunk:
                 payload = json.dumps(
-                    {"type": "evidence", "evidence": chunk["evidence_ready"], "note": chunk.get("note")},
+                    {
+                        "type": "evidence",
+                        "evidence": chunk["evidence_ready"],
+                        "evidence_packet": chunk.get("evidence_packet"),
+                        "note": chunk.get("note"),
+                    },
                     default=_json_default,
                 )
             else:
@@ -78,3 +95,8 @@ async def chat(
         return await service.answer(request)
     except VisRAGUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except EvidenceValidationError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Evidence packet validation failed.",
+        ) from exc

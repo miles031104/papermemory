@@ -4,9 +4,18 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.schemas.evidence import EvidencePacket
 from app.schemas.papers import page_image_url
 
-PUBLIC_METADATA_KEYS = {"embedding_model", "embedding_instruction"}
+PUBLIC_METADATA_KEYS = {
+    "embedding_model",
+    "embedding_instruction",
+    "quality_label",
+    "text_quality",
+    "ocr_needed",
+    "char_count",
+    "word_count",
+}
 PATH_REDACTION = "[redacted local path]"
 PATH_LIKE_PATTERNS = (
     re.compile(r"[A-Za-z]:[\\/][^\r\n\t\"'<>|]+"),
@@ -32,6 +41,7 @@ class RetrievalQuery(BaseModel):
     top_k: int = Field(default=5, ge=1, le=25)
     score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
     max_per_paper: int | None = Field(default=None, ge=1, le=25)
+    retrieval_mode: Literal["visual", "hybrid"] = "visual"
 
 
 class PageEvidence(BaseModel):
@@ -82,6 +92,7 @@ class RetrievalResponse(BaseModel):
     status: Literal["success", "partial", "error"]
     query: str
     evidence: list[PageEvidence]
+    evidence_packet: EvidencePacket | None = None
     retrieval_model: str
     note: str | None = None
     stats: RetrievalStats

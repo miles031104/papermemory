@@ -1,0 +1,44 @@
+{
+  "name": "evidence_reliability_general_testset",
+  "purpose": "Generic checks for evidence planning, coverage, claim verification, and answer quality status.",
+  "cases": [
+    {
+      "id": "ER1",
+      "capability": "numeric grounding",
+      "question": "Which concrete numbers across these documents support the reported result?",
+      "expected_intent": "numeric_grounding",
+      "expected_claim_types": ["number", "comparison"],
+      "expected_multi_paper_coverage": true
+    },
+    {
+      "id": "ER2",
+      "capability": "cross-document comparison",
+      "question": "Compare the main findings across the selected papers.",
+      "expected_intent": "cross_document_comparison",
+      "expected_claim_types": ["comparison", "result"],
+      "expected_multi_paper_coverage": true
+    },
+    {
+      "id": "ER3",
+      "capability": "taxonomy classification",
+      "question": "Classify the evidence category and cite which source supports each label.",
+      "expected_intent": "taxonomy_classification",
+      "expected_claim_types": ["taxonomy"],
+      "expected_multi_paper_coverage": true
+    },
+    {
+      "id": "ER4",
+      "capability": "claim boundary",
+      "question": "What should our report claim, and what limitations should it not overclaim?",
+      "expected_intent": "claim_boundary",
+      "expected_claim_types": ["recommendation", "safety_boundary", "limitation"]
+    },
+    {
+      "id": "ER5",
+      "capability": "answer quality status",
+      "question": "What result does the study report, and which evidence should be checked before answering?",
+      "expected_intent": "method_or_result_extraction",
+      "expected_claim_types": ["method", "result"]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+\section{Interview Market Validation}
+\label{app:interview-validation}
+
+The market evidence comes from informal interviews with 10 postgraduate interviewees. The sample is small, so the results are treated as early intent evidence rather than paid adoption data.
+
+\paragraph{Questionnaire protocol.}
+Each interview used the same six prompts:
+\begin{enumerate}
+  \item What is your current research stage, and how often do you read PDFs?
+  \item What is your current literature reading and citation-checking workflow?
+  \item On a 1--5 scale, how likely would you be to pay if PaperMemory delivered local PDF ingestion, evidence-backed answers, visible page citations, bounded uncertainty, and smoother model access?
+  \item Would you prefer BYOK/local-model setup or PaperMemory-provided LLM access through a subscription?
+  \item Which packaging would you prefer: free BYOK with limited groups, 10~USD/month with a lower weekly managed-model limit, or 20~USD/month with a higher weekly managed-model limit?
+  \item What risk would stop you from relying on the tool for research writing?
+\end{enumerate}
+
+\paragraph{Aggregate response.}
+Across the 10 postgraduate interviewees, the mean conditional purchase likelihood was 4.2/5 if PaperMemory delivered the described workflow, and 70\% preferred PaperMemory-provided API/model access through a subscription over BYOK-only access. The report frames that paid option as provider-compliant API relay with caps, not consumer-account resale. The report does not claim participant-level raw data, paid conversion, retention, product-market fit, or production margins from this interview sample.
+
+\begin{table}[h]
+  \caption{Interview aggregate used in the market and revenue sections.}
+  \label{tab:appendix-interview-validation}
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{p{0.28\linewidth}p{0.18\linewidth}Y}
+    \toprule
+    Measure & Result & Report use \\
+    \midrule
+    Sample & 10 postgraduate researchers & Early postgraduate researcher signal, not a representative survey. \\
+    Conditional purchase likelihood & 4.2 / 5 mean & Supports testing a paid evidence-workflow product if the promised functions are delivered. \\
+    Managed API/model preference & 70\% & Supports adding monthly subscription tiers rather than offering BYOK only. \\
+    Proposed tiers discussed in report & Free BYOK, 10~USD/month, 20~USD/month & Proposed packaging for stress testing, not launched billing. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\paragraph{How the report uses the result.}
+The main report uses the interviews to justify a commercial experiment: a free BYOK tier for adoption, plus paid provider-compliant managed-access tiers for users who do not want to configure model keys. The result also explains why the cost model matters. If managed access is part of the product, model usage must have weekly caps, BYOK fallback above cap, rate limits, or fair-use controls.
+
+\paragraph{Limitations.}
+The interviews do not measure paid conversion, retention, referral, production revenue, support load, or willingness to keep paying after repeated use. The report therefore treats the numbers as market direction, not proof of demand.

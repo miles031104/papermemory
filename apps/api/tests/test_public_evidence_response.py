@@ -1,10 +1,16 @@
+import asyncio
+
+import pytest
 from fastapi.testclient import TestClient
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
+from app.core.paths import StoragePaths
 from app.main import create_app
 from app.routers import chat, retrieval
+from app.schemas.chat import ChatRequest
 from app.schemas.retrieval import PageEvidence
 from app.services.chat_service import ChatService
+from app.services.evidence_validator import EvidenceValidationError
 from app.services.model_gateway import GenerationResponse, ModelGateway
 
 
@@ -52,6 +58,24 @@ class FakeVectorStore:
         ]
 
 
+class MissingPageVectorStore:
+    async def search_pages(
+        self,
+        embedding: list[float],
+        top_k: int,
+        paper_ids: list[str] | None = None,
+        score_threshold: float | None = None,
+        max_per_paper: int | None = None,
+    ) -> list[PageEvidence]:
+        return [
+            PageEvidence(
+                paper_id="missing-paper",
+                page_number=999,
+                score=0.9,
+            )
+        ]
+
+
 class RecordingModelGateway(ModelGateway):
     def __init__(self) -> None:
         super().__init__(Settings())
@@ -67,8 +91,20 @@ class RecordingModelGateway(ModelGateway):
         return GenerationResponse(text="answer", model=model or self.model)
 
 
-def _client() -> TestClient:
+def _write_backing_page(settings: Settings, paper_id: str, page_number: int) -> None:
+    paths = StoragePaths(settings)
+    paths.ensure_all()
+    paths.paper_dir(paper_id).mkdir(parents=True, exist_ok=True)
+    paths.paper_metadata_path(paper_id).write_text("{}", encoding="utf-8")
+    paths.page_images_dir(paper_id).mkdir(parents=True, exist_ok=True)
+    paths.page_image_path(paper_id, page_number).write_bytes(b"\x89PNG\r\n\x1a\nfake")
+
+
+def _client(tmp_path) -> TestClient:
+    settings = Settings(storage_root=tmp_path / "storage")
+    _write_backing_page(settings, "paper-1", 1)
     api = create_app()
+    api.dependency_overrides[get_settings] = lambda: settings
     api.dependency_overrides[retrieval.get_visrag_service] = lambda: FakeVisRAG()
     api.dependency_overrides[retrieval.get_vector_store] = lambda: FakeVectorStore()
     api.dependency_overrides[chat.get_chat_service] = lambda: ChatService(
@@ -79,8 +115,8 @@ def _client() -> TestClient:
     return TestClient(api)
 
 
-def test_retrieval_response_hides_local_image_path() -> None:
-    response = _client().post(
+def test_retrieval_response_hides_local_image_path(tmp_path) -> None:
+    response = _client(tmp_path).post(
         "/retrieval/search",
         json={"query": "what is the method?", "paper_ids": ["paper-1"]},
     )
@@ -109,8 +145,11 @@ def test_retrieval_response_hides_local_image_path() -> None:
     assert "unknown" not in response.text
 
 
-def test_chat_response_hides_local_image_path() -> None:
-    response = _client().post("/chat", json={"question": "what is the method?", "paper_ids": ["paper-1"]})
+def test_chat_response_hides_local_image_path(tmp_path) -> None:
+    response = _client(tmp_path).post(
+        "/chat",
+        json={"question": "what is the method?", "paper_ids": ["paper-1"]},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -137,3 +176,59 @@ def test_chat_response_hides_local_image_path() -> None:
     assert "source_path" not in response.text
     assert "local_path" not in response.text
     assert "unknown" not in response.text
+
+
+def test_retrieval_route_returns_generic_500_for_missing_page_image(tmp_path) -> None:
+    settings = Settings(storage_root=tmp_path / "storage")
+    api = create_app()
+    api.dependency_overrides[get_settings] = lambda: settings
+    api.dependency_overrides[retrieval.get_visrag_service] = lambda: FakeVisRAG()
+    api.dependency_overrides[retrieval.get_vector_store] = lambda: MissingPageVectorStore()
+
+    response = TestClient(api, raise_server_exceptions=False).post(
+        "/retrieval/search",
+        json={"query": "missing visual page?", "paper_ids": ["missing-paper"]},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Evidence packet validation failed."
+    assert str(tmp_path) not in response.text
+    assert "Missing page image" not in response.text
+    assert "Missing paper metadata" not in response.text
+
+
+def test_chat_route_returns_generic_500_for_missing_page_image(tmp_path) -> None:
+    settings = Settings(storage_root=tmp_path / "storage")
+    api = create_app()
+    api.dependency_overrides[get_settings] = lambda: settings
+    api.dependency_overrides[chat.get_chat_service] = lambda: ChatService(
+        visrag=FakeVisRAG(),  # type: ignore[arg-type]
+        vector_store=MissingPageVectorStore(),  # type: ignore[arg-type]
+        model_gateway=RecordingModelGateway(),
+        storage_paths=StoragePaths(settings),
+    )
+
+    response = TestClient(api, raise_server_exceptions=False).post(
+        "/chat",
+        json={"question": "missing visual page?", "paper_ids": ["missing-paper"]},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Evidence packet validation failed."
+    assert str(tmp_path) not in response.text
+    assert "Missing page image" not in response.text
+    assert "Missing paper metadata" not in response.text
+
+
+def test_chat_service_with_storage_paths_rejects_missing_page_image(tmp_path) -> None:
+    settings = Settings(storage_root=tmp_path / "storage")
+    service = ChatService(
+        visrag=FakeVisRAG(),  # type: ignore[arg-type]
+        vector_store=MissingPageVectorStore(),  # type: ignore[arg-type]
+        model_gateway=RecordingModelGateway(),
+        storage_paths=StoragePaths(settings),
+    )
+    request = ChatRequest(question="missing visual page?", paper_ids=["missing-paper"])
+
+    with pytest.raises(EvidenceValidationError):
+        asyncio.run(service.answer(request))

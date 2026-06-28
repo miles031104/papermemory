@@ -3,6 +3,8 @@ import type {
   ApiChatResponse,
   ApiChatStreamDone,
   ApiChatStreamError,
+  ApiAnswerReliabilityReport,
+  ApiEvidencePacket,
   ApiHealthResponse,
   ApiPageEvidence,
   ApiPaperListResponse,
@@ -211,7 +213,8 @@ export const paperMemoryApi = {
       body: {
         query,
         paper_ids: paperIds,
-        top_k: topK
+        top_k: topK,
+        retrieval_mode: paperIds && paperIds.length > 0 ? "hybrid" : "visual",
       },
       baseUrl
     });
@@ -221,7 +224,11 @@ export const paperMemoryApi = {
     request: ApiChatRequest,
     baseUrl: string,
     onDelta: (token: string) => void,
-    onEvidence?: (evidence: ApiPageEvidence[], note: string | null) => void,
+    onEvidence?: (
+      evidence: ApiPageEvidence[],
+      evidencePacket: ApiEvidencePacket | null,
+      note: string | null,
+    ) => void,
   ): Promise<ApiChatStreamDone> {
     const apiBaseUrl = baseUrl?.trim() || defaultApiBaseUrl;
     const response = await fetch(
@@ -264,9 +271,11 @@ export const paperMemoryApi = {
           content?: string;
           answer?: string;
           evidence?: ApiPageEvidence[];
+          evidence_packet?: ApiEvidencePacket | null;
+          reliability_report?: ApiAnswerReliabilityReport | null;
           note?: string | null;
           stats?: Record<string, unknown>;
-          summary_message?: import("@/lib/types").ApiWorkspaceMessage | null;
+          summary_message?: import("@/lib/types").ApiChatSummaryMessage | null;
           status?: number;
           detail?: string;
         };
@@ -279,11 +288,13 @@ export const paperMemoryApi = {
         if (parsed.type === "delta" && parsed.content) {
           onDelta(parsed.content);
         } else if (parsed.type === "evidence") {
-          onEvidence?.(parsed.evidence ?? [], parsed.note ?? null);
+          onEvidence?.(parsed.evidence ?? [], parsed.evidence_packet ?? null, parsed.note ?? null);
         } else if (parsed.type === "done") {
           result = {
             answer: parsed.answer ?? "",
             evidence: parsed.evidence ?? [],
+            evidence_packet: parsed.evidence_packet ?? null,
+            reliability_report: parsed.reliability_report ?? null,
             note: parsed.note ?? null,
             stats: parsed.stats ?? {},
             summary_message: parsed.summary_message ?? null,

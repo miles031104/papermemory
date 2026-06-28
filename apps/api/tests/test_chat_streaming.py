@@ -5,11 +5,15 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from app.schemas.agent_trace import AgentTrace, AgentTraceAction
+from app.schemas.evidence import EvidenceCitation, EvidencePacket, EvidenceRankTrace, EvidenceUnit
 from app.schemas.chat import ChatMessage, ChatRequest
 from app.schemas.retrieval import PageEvidence
-from app.services.chat_service import ChatService
+from app.services.chat_service import ChatService, WEAK_EVIDENCE_LIMIT
 from app.services.context_builder import RECENT_CONVERSATION_MESSAGE_LIMIT
+from app.services.hybrid_retrieval_service import HybridRetrievalResult
 from app.services.model_gateway import GenerationResponse, ModelGateway
+from app.services.research_orchestrator import OrchestratorResult
 from app.services.visrag_service import EmbeddingResult
 
 
@@ -108,6 +112,103 @@ class RetryVectorStore:
         return list(self._retry_evidence)
 
 
+class RaisingVectorStore:
+    async def search_pages(self, **kwargs):
+        raise AssertionError("visual retrieval should not be used for hybrid chat")
+
+
+class RecordingHybridRetrievalService:
+    def __init__(self, result: HybridRetrievalResult) -> None:
+        self.result = result
+        self.calls: list[dict[str, Any]] = []
+
+    async def search(self, **kwargs) -> HybridRetrievalResult:
+        self.calls.append(kwargs)
+        return self.result
+
+
+class RecordingOrchestrator:
+    def __init__(self, result: OrchestratorResult) -> None:
+        self.result = result
+        self.requests: list[Any] = []
+
+    async def run(self, request) -> OrchestratorResult:
+        self.requests.append(request)
+        return self.result
+
+
+def _hybrid_packet() -> tuple[list[PageEvidence], EvidencePacket]:
+    evidence = [
+        PageEvidence(
+            paper_id="paper-1",
+            page_number=4,
+            score=0.03278688524590164,
+            caption="Hybrid packet caption.",
+        )
+    ]
+    unit = EvidenceUnit(
+        evidence_id="ev-paper-1-p4-hybrid",
+        paper_id="paper-1",
+        page_number=4,
+        source="hybrid_page",
+        score=evidence[0].score,
+        image_url="/papers/paper-1/pages/4/image",
+        caption=evidence[0].caption,
+        rank_trace=[
+            EvidenceRankTrace(retriever="visrag", source="visrag_page", rank=2, score=0.91),
+            EvidenceRankTrace(retriever="bm25", source="text_page", rank=1, score=8.5),
+        ],
+        validation_state="validated",
+    )
+    packet = EvidencePacket(
+        packet_id="ep-hybrid-chat",
+        query="hybrid query",
+        paper_scope=["paper-1"],
+        units=[unit],
+        citations=[
+            EvidenceCitation(
+                evidence_id=unit.evidence_id,
+                paper_id="paper-1",
+                page_number=4,
+                label="paper-1 p.4",
+            )
+        ],
+        limits=["Text manifest missing for one or more scoped papers."],
+    )
+    return evidence, packet
+
+
+def _orchestrator_result() -> OrchestratorResult:
+    evidence, packet = _hybrid_packet()
+    trace = AgentTrace(
+        trace_id="trace-stream",
+        actions=[
+            AgentTraceAction(
+                state="first_retrieval",
+                pass_index=1,
+                query="How does hybrid retrieval work?",
+                retrieval_mode="hybrid",
+                evidence_ids=["ev-paper-1-p4-hybrid"],
+                new_evidence_ids=["ev-paper-1-p4-hybrid"],
+                evidence_delta_count=1,
+            ),
+            AgentTraceAction(
+                state="answer",
+                pass_index=1,
+                evidence_ids=["ev-paper-1-p4-hybrid"],
+                stop_reason="sufficient",
+            ),
+        ],
+        final_stop_reason="sufficient",
+    )
+    return OrchestratorResult(
+        evidence=evidence,
+        evidence_packet=packet,
+        agent_trace=trace,
+        limits=list(packet.limits),
+    )
+
+
 def _make_chat_service(
     tokens: list[str],
     visrag: Any = None,
@@ -182,6 +283,149 @@ def test_answer_stream_yields_token_strings_then_done_dict():
         assert "evidence" in done
         assert "note" in done
         assert "stats" in done
+
+    asyncio.run(run())
+
+
+def test_answer_stream_hybrid_frames_preserve_packet_rank_trace_and_order():
+    async def run():
+        evidence, packet = _hybrid_packet()
+        hybrid = RecordingHybridRetrievalService(
+            HybridRetrievalResult(
+                status="success",
+                evidence=evidence,
+                evidence_packet=packet,
+                limits=list(packet.limits),
+            )
+        )
+        service = ChatService(
+            visrag=StubVisRAG(),
+            vector_store=RaisingVectorStore(),
+            model_gateway=StreamingGateway(["Hybrid ", "answer"]),
+            page_image_resolver=None,
+            hybrid_retrieval=hybrid,
+        )
+        request = ChatRequest(
+            question="How does hybrid retrieval work?",
+            paper_ids=["paper-1"],
+            retrieval_mode="hybrid",
+            base_url="http://fake.local/v1",
+            api_key="key",
+            model="test-model",
+            enable_agentic_retrieval=False,
+        )
+
+        chunks = []
+        async for chunk in service.answer_stream(request):
+            chunks.append(chunk)
+
+        assert hybrid.calls == [
+            {
+                "query": "How does hybrid retrieval work?",
+                "paper_ids": ["paper-1"],
+                "top_k": 5,
+                "score_threshold": None,
+                "max_per_paper": None,
+            }
+        ]
+        assert isinstance(chunks[0], dict)
+        assert chunks[0]["evidence_ready"] == evidence
+        assert chunks[0]["evidence_packet"].packet_id == "ep-hybrid-chat"
+        assert [trace.retriever for trace in chunks[0]["evidence_packet"].units[0].rank_trace] == [
+            "visrag",
+            "bm25",
+        ]
+        assert chunks[1:3] == ["Hybrid ", "answer"]
+        assert isinstance(chunks[-1], dict)
+        assert chunks[-1]["answer"] == "Hybrid answer"
+        assert chunks[-1]["evidence_packet"].packet_id == "ep-hybrid-chat"
+        assert [trace.retriever for trace in chunks[-1]["evidence_packet"].units[0].rank_trace] == [
+            "visrag",
+            "bm25",
+        ]
+
+    asyncio.run(run())
+
+
+def test_answer_stream_hybrid_weak_limit_visible_in_early_and_done_packets():
+    async def run():
+        evidence, packet = _hybrid_packet()
+        hybrid = RecordingHybridRetrievalService(
+            HybridRetrievalResult(
+                status="success",
+                evidence=evidence,
+                evidence_packet=packet,
+                limits=list(packet.limits),
+            )
+        )
+        service = ChatService(
+            visrag=StubVisRAG(),
+            vector_store=RaisingVectorStore(),
+            model_gateway=StreamingGateway(["Weak ", "answer"]),
+            page_image_resolver=None,
+            hybrid_retrieval=hybrid,
+        )
+        request = ChatRequest(
+            question="How does hybrid retrieval work?",
+            paper_ids=["paper-1"],
+            retrieval_mode="hybrid",
+            base_url="http://fake.local/v1",
+            api_key="key",
+            model="test-model",
+            enable_agentic_retrieval=False,
+        )
+
+        chunks = []
+        async for chunk in service.answer_stream(request):
+            chunks.append(chunk)
+
+        assert WEAK_EVIDENCE_LIMIT in chunks[0]["evidence_packet"].limits
+        assert WEAK_EVIDENCE_LIMIT in chunks[-1]["evidence_packet"].limits
+
+    asyncio.run(run())
+
+
+def test_answer_stream_agentic_trace_only_appears_on_final_done_frame():
+    async def run():
+        hybrid = RecordingHybridRetrievalService(
+            HybridRetrievalResult(
+                status="success",
+                evidence=[],
+                evidence_packet=_hybrid_packet()[1],
+                limits=[],
+            )
+        )
+        orchestrator = RecordingOrchestrator(_orchestrator_result())
+        service = ChatService(
+            visrag=StubVisRAG(),
+            vector_store=RaisingVectorStore(),
+            model_gateway=StreamingGateway(["Hybrid ", "answer"]),
+            page_image_resolver=None,
+            hybrid_retrieval=hybrid,
+            research_orchestrator_factory=lambda **kwargs: orchestrator,
+        )
+        request = ChatRequest(
+            question="How does hybrid retrieval work?",
+            paper_ids=["paper-1"],
+            retrieval_mode="hybrid",
+            base_url="http://fake.local/v1",
+            api_key="key",
+            model="test-model",
+            enable_agentic_retrieval=True,
+        )
+
+        chunks = []
+        async for chunk in service.answer_stream(request):
+            chunks.append(chunk)
+
+        assert len(orchestrator.requests) == 1
+        assert isinstance(chunks[0], dict)
+        assert "evidence_ready" in chunks[0]
+        assert "agent_trace" not in chunks[0]
+        assert chunks[1:3] == ["Hybrid ", "answer"]
+        assert isinstance(chunks[-1], dict)
+        assert chunks[-1]["agent_trace"].trace_id == "trace-stream"
+        assert chunks[-1]["agent_trace"].final_stop_reason == "sufficient"
 
     asyncio.run(run())
 
@@ -402,14 +646,19 @@ def test_chat_stream_endpoint_returns_sse_with_evidence_delta_and_done_frames():
     assert len(evidence_frames) == 1, "expected exactly one evidence frame"
     assert len(delta_frames) >= 1
     assert len(done_frames) == 1
+    assert "evidence_packet" in evidence_frames[0]
+    assert evidence_frames[0]["evidence_packet"]["query"] == "Test streaming?"
+    assert evidence_frames[0]["evidence_packet"]["units"] == []
     assert "answer" in done_frames[0]
     assert "evidence" in done_frames[0]
 
-    # evidence frame must arrive before any delta
+    # evidence frame must arrive before any delta and final done frame
     frame_types = [f["type"] for f in frames]
     evidence_idx = frame_types.index("evidence")
     first_delta_idx = frame_types.index("delta")
+    done_idx = frame_types.index("done")
     assert evidence_idx < first_delta_idx, "evidence frame must precede delta frames"
+    assert first_delta_idx < done_idx, "delta frames must precede done frame"
 
 
 def test_chat_stream_endpoint_returns_error_frame_for_provider_failure():

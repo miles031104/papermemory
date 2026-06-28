@@ -1,6 +1,13 @@
 import { ChatPanel } from "@/components/chat-panel";
 import { EvidencePanel } from "@/components/evidence-panel";
-import type { ApiPageEvidence, ChatMessage, EvidenceItem, PaperGroup, PaperSummary } from "@/lib/types";
+import type {
+  ApiEvidencePacket,
+  ApiPageEvidence,
+  ChatMessage,
+  EvidenceItem,
+  PaperGroup,
+  PaperSummary,
+} from "@/lib/types";
 
 interface ChatViewProps {
   activeGroup?: PaperGroup;
@@ -10,6 +17,7 @@ interface ChatViewProps {
   isSubmitting: boolean;
   error?: string | null;
   evidence: Array<EvidenceItem | ApiPageEvidence>;
+  evidencePacket: ApiEvidencePacket | null;
   evidenceNote: string | null;
   paperTitles: Record<string, string>;
   apiBaseUrl: string;
@@ -27,6 +35,7 @@ export function ChatView({
   isSubmitting,
   error,
   evidence,
+  evidencePacket,
   evidenceNote,
   paperTitles,
   apiBaseUrl,
@@ -76,7 +85,13 @@ export function ChatView({
         />
       </div>
       <aside className="side-stack workspace-aside" aria-label="Retrieved evidence">
-        <EvidencePanel evidence={evidence} paperTitles={paperTitles} note={evidenceNote} apiBaseUrl={apiBaseUrl} />
+        <EvidencePanel
+          evidence={evidence}
+          evidencePacket={evidencePacket}
+          paperTitles={paperTitles}
+          note={evidenceNote}
+          apiBaseUrl={apiBaseUrl}
+        />
       </aside>
     </section>
   );

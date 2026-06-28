@@ -2,10 +2,14 @@
 import asyncio
 from typing import Any
 
+from app.schemas.agent_trace import AgentTrace, AgentTraceAction
+from app.schemas.evidence import EvidenceCitation, EvidencePacket, EvidenceRankTrace, EvidenceUnit
 from app.schemas.chat import ChatMessage, ChatRequest
 from app.schemas.retrieval import PageEvidence
-from app.services.chat_service import ChatService
-from app.services.model_gateway import GenerationResponse, ModelGateway
+from app.services.chat_service import ChatService, WEAK_EVIDENCE_LIMIT
+from app.services.hybrid_retrieval_service import HybridRetrievalResult
+from app.services.model_gateway import BuiltUserContent, GenerationResponse, ModelGateway
+from app.services.research_orchestrator import OrchestratorResult
 from app.services.visrag_service import EmbeddingResult
 
 
@@ -34,7 +38,22 @@ class RecordingGateway(ModelGateway):
         yield "answer token"
 
     def build_user_content(self, text: str, image_paths, **kwargs):
-        from app.services.model_gateway import BuiltUserContent
+        return BuiltUserContent(content=text, included_image_count=0)
+
+
+class RecordingUserContentGateway(RecordingGateway):
+    def __init__(self, generate_text: str = "rewritten query") -> None:
+        super().__init__(generate_text=generate_text)
+        self.user_content_calls: list[dict[str, Any]] = []
+
+    def build_user_content(self, text: str, image_paths, **kwargs):
+        self.user_content_calls.append(
+            {
+                "text": text,
+                "image_paths": list(image_paths),
+                **kwargs,
+            }
+        )
         return BuiltUserContent(content=text, included_image_count=0)
 
 
@@ -65,6 +84,104 @@ class FixedVectorStore:
 class EmptyVectorStore:
     async def search_pages(self, **kwargs):
         return []
+
+
+class RecordingHybridRetrievalService:
+    def __init__(self, result: HybridRetrievalResult) -> None:
+        self.result = result
+        self.calls: list[dict[str, Any]] = []
+
+    async def search(self, **kwargs) -> HybridRetrievalResult:
+        self.calls.append(kwargs)
+        return self.result
+
+
+class RecordingOrchestrator:
+    def __init__(self, result: OrchestratorResult) -> None:
+        self.result = result
+        self.requests: list[Any] = []
+
+    async def run(self, request) -> OrchestratorResult:
+        self.requests.append(request)
+        return self.result
+
+
+def _hybrid_result() -> HybridRetrievalResult:
+    evidence = [
+        PageEvidence(
+            paper_id="paper-abc",
+            page_number=3,
+            score=0.03278688524590164,
+            caption="Hybrid evidence caption.",
+        )
+    ]
+    unit = EvidenceUnit(
+        evidence_id="ev-paper-abc-p3-hybrid",
+        paper_id="paper-abc",
+        page_number=3,
+        source="hybrid_page",
+        score=evidence[0].score,
+        image_url="/papers/paper-abc/pages/3/image",
+        caption=evidence[0].caption,
+        rank_trace=[
+            EvidenceRankTrace(retriever="visrag", source="visrag_page", rank=3, score=0.72),
+            EvidenceRankTrace(retriever="bm25", source="text_page", rank=1, score=9.25),
+        ],
+        validation_state="validated",
+    )
+    packet = EvidencePacket(
+        packet_id="ep-agentic-hybrid",
+        query="What is X?",
+        paper_scope=["paper-abc"],
+        units=[unit],
+        citations=[
+            EvidenceCitation(
+                evidence_id=unit.evidence_id,
+                paper_id="paper-abc",
+                page_number=3,
+                label="paper-abc p.3",
+            )
+        ],
+        limits=["Text manifest missing for one or more scoped papers."],
+    )
+    return HybridRetrievalResult(
+        status="success",
+        evidence=evidence,
+        evidence_packet=packet,
+        limits=list(packet.limits),
+    )
+
+
+def _orchestrator_result() -> OrchestratorResult:
+    hybrid = _hybrid_result()
+    trace = AgentTrace(
+        trace_id="trace-test",
+        actions=[
+            AgentTraceAction(
+                state="first_retrieval",
+                pass_index=1,
+                query="What is X?",
+                retrieval_mode="hybrid",
+                evidence_ids=["ev-paper-abc-p3-hybrid"],
+                new_evidence_ids=["ev-paper-abc-p3-hybrid"],
+                evidence_delta_count=1,
+            ),
+            AgentTraceAction(
+                state="answer",
+                pass_index=1,
+                evidence_ids=["ev-paper-abc-p3-hybrid"],
+                stop_reason="sufficient",
+            ),
+        ],
+        final_stop_reason="sufficient",
+        limits=["max_passes=3", "max_queries_per_pass=4", "max_final_evidence_units=8"],
+    )
+    return OrchestratorResult(
+        evidence=hybrid.evidence,
+        evidence_packet=hybrid.evidence_packet,
+        agent_trace=trace,
+        limits=list(hybrid.limits),
+    )
 
 
 def _two_turn_messages() -> list[ChatMessage]:
@@ -144,6 +261,266 @@ def test_agentic_retrieval_runs_planned_queries_and_dedupes_top_k():
         ]
         assert len(gateway.generate_calls) == 1
         assert "retrieval planner" in gateway.generate_calls[0][0]["content"]
+
+    asyncio.run(run())
+
+
+def test_scoped_hybrid_chat_uses_orchestrator_and_returns_trace_safe_actions():
+    async def run():
+        gateway = RecordingGateway(generate_text="Answer with paper-abc p.3.")
+        hybrid = RecordingHybridRetrievalService(_hybrid_result())
+        orchestrator = RecordingOrchestrator(_orchestrator_result())
+        service = ChatService(
+            visrag=TrackingVisRAG(),
+            vector_store=EmptyVectorStore(),
+            model_gateway=gateway,
+            page_image_resolver=None,
+            hybrid_retrieval=hybrid,
+            research_orchestrator_factory=lambda **kwargs: orchestrator,
+        )
+        request = ChatRequest(
+            question="What is X?",
+            paper_ids=["paper-abc"],
+            retrieval_mode="hybrid",
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            enable_agentic_retrieval=True,
+        )
+
+        response = await service.answer(request)
+
+        assert hybrid.calls == []
+        assert len(orchestrator.requests) == 1
+        assert orchestrator.requests[0].question == "What is X?"
+        assert response.agent_trace is not None
+        assert response.agent_trace.final_stop_reason == "sufficient"
+        trace_text = response.agent_trace.model_dump_json()
+        assert "C:\\Users" not in trace_text
+        assert "ignore previous" not in trace_text.lower()
+        assert "paper-abc p.3" in response.answer
+
+    asyncio.run(run())
+
+
+def test_hybrid_chat_agentic_disabled_uses_hybrid_service_and_packet_prompt_context():
+    async def run():
+        gateway = RecordingGateway(generate_text="Answer with paper-abc p.3 and paper-abc p.99.")
+        hybrid = RecordingHybridRetrievalService(_hybrid_result())
+        service = ChatService(
+            visrag=TrackingVisRAG(),
+            vector_store=EmptyVectorStore(),
+            model_gateway=gateway,
+            page_image_resolver=None,
+            hybrid_retrieval=hybrid,
+        )
+        request = ChatRequest(
+            question="What is X?",
+            paper_ids=["paper-abc"],
+            retrieval_mode="hybrid",
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            enable_agentic_retrieval=False,
+        )
+
+        response = await service.answer(request)
+
+        assert hybrid.calls == [
+            {
+                "query": "What is X?",
+                "paper_ids": ["paper-abc"],
+                "top_k": 5,
+                "score_threshold": None,
+                "max_per_paper": None,
+            }
+        ]
+        assert response.evidence_packet is not None
+        assert response.evidence_packet.packet_id == "ep-agentic-hybrid"
+        assert response.agent_trace is None
+        assert [trace.retriever for trace in response.evidence_packet.units[0].rank_trace] == [
+            "visrag",
+            "bm25",
+        ]
+        assert "evidence_id=ev-paper-abc-p3-hybrid" in response.prompt_preview
+        assert "rank_trace=visrag r3 score=0.7200; bm25 r1 score=9.2500" in response.prompt_preview
+        assert "Text manifest missing for one or more scoped papers." in response.prompt_preview
+        assert "paper-abc p.3" in response.answer
+        assert "paper-abc p.99" not in response.answer
+
+    asyncio.run(run())
+
+
+def test_hybrid_chat_marks_all_low_scored_evidence_as_weak():
+    async def run():
+        gateway = RecordingGateway(generate_text="Answer with paper-abc p.3.")
+        hybrid = RecordingHybridRetrievalService(_hybrid_result())
+        service = ChatService(
+            visrag=TrackingVisRAG(),
+            vector_store=EmptyVectorStore(),
+            model_gateway=gateway,
+            page_image_resolver=None,
+            hybrid_retrieval=hybrid,
+        )
+        request = ChatRequest(
+            question="What is X?",
+            paper_ids=["paper-abc"],
+            retrieval_mode="hybrid",
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            enable_agentic_retrieval=False,
+        )
+
+        response = await service.answer(request)
+
+        assert WEAK_EVIDENCE_LIMIT in response.limits
+        assert response.evidence_packet is not None
+        assert WEAK_EVIDENCE_LIMIT in response.evidence_packet.limits
+
+    asyncio.run(run())
+
+
+def test_packet_quality_limits_keep_mixed_strength_scores_unflagged():
+    weak_unit = EvidenceUnit(
+        evidence_id="ev-p1-p1-weak",
+        paper_id="p1",
+        page_number=1,
+        source="hybrid_page",
+        score=0.03,
+        validation_state="validated",
+    )
+    strong_unit = EvidenceUnit(
+        evidence_id="ev-p1-p2-strong",
+        paper_id="p1",
+        page_number=2,
+        source="hybrid_page",
+        score=0.72,
+        validation_state="validated",
+    )
+    packet = EvidencePacket(
+        packet_id="ep-mixed-strength",
+        query="Q?",
+        paper_scope=["p1"],
+        units=[weak_unit, strong_unit],
+        citations=[],
+    )
+
+    limits = ChatService._packet_quality_limits(packet)
+
+    assert WEAK_EVIDENCE_LIMIT not in limits
+
+
+def test_packet_quality_limits_ignore_units_without_scores_for_weak_limit():
+    unit = EvidenceUnit(
+        evidence_id="ev-p1-p1-unscored",
+        paper_id="p1",
+        page_number=1,
+        source="hybrid_page",
+        score=None,
+        validation_state="validated",
+    )
+    packet = EvidencePacket(
+        packet_id="ep-unscored",
+        query="Q?",
+        paper_scope=["p1"],
+        units=[unit],
+        citations=[],
+    )
+
+    limits = ChatService._packet_quality_limits(packet)
+
+    assert WEAK_EVIDENCE_LIMIT not in limits
+
+
+def test_no_paper_conversation_mode_does_not_run_orchestrator_or_retrieval():
+    async def run():
+        gateway = RecordingGateway(generate_text="General answer.")
+        hybrid = RecordingHybridRetrievalService(_hybrid_result())
+        orchestrator = RecordingOrchestrator(_orchestrator_result())
+        service = ChatService(
+            visrag=TrackingVisRAG(),
+            vector_store=EmptyVectorStore(),
+            model_gateway=gateway,
+            page_image_resolver=None,
+            hybrid_retrieval=hybrid,
+            research_orchestrator_factory=lambda **kwargs: orchestrator,
+        )
+        request = ChatRequest(
+            question="What is a literature review?",
+            paper_ids=None,
+            retrieval_mode="hybrid",
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            enable_agentic_retrieval=True,
+        )
+
+        response = await service.answer(request)
+
+        assert hybrid.calls == []
+        assert orchestrator.requests == []
+        assert response.agent_trace is None
+        assert response.stats.retrieval_attempted is False
+
+    asyncio.run(run())
+
+
+def test_visual_retrieval_mode_keeps_single_pass_fallback():
+    async def run():
+        gateway = RecordingGateway(generate_text="Visual answer with paper-abc p.3.")
+        visrag = TrackingVisRAG()
+        orchestrator = RecordingOrchestrator(_orchestrator_result())
+        service = ChatService(
+            visrag=visrag,
+            vector_store=FixedVectorStore(),
+            model_gateway=gateway,
+            page_image_resolver=None,
+            hybrid_retrieval=RecordingHybridRetrievalService(_hybrid_result()),
+            research_orchestrator_factory=lambda **kwargs: orchestrator,
+        )
+        request = ChatRequest(
+            question="What is X?",
+            paper_ids=["paper-abc"],
+            retrieval_mode="visual",
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            enable_agentic_retrieval=True,
+        )
+
+        response = await service.answer(request)
+
+        assert orchestrator.requests == []
+        assert visrag.queries == ["What is X?"]
+        assert response.agent_trace is None
+        assert response.evidence_packet is not None
+
+    asyncio.run(run())
+
+
+def test_chat_service_clamps_evidence_images_to_three():
+    async def run():
+        gateway = RecordingUserContentGateway(generate_text="General answer.")
+        service = ChatService(
+            visrag=TrackingVisRAG(),
+            vector_store=EmptyVectorStore(),
+            model_gateway=gateway,
+            page_image_resolver=None,
+        )
+        request = ChatRequest(
+            question="What can you answer generally?",
+            paper_ids=None,
+            base_url="http://fake/v1",
+            api_key="k",
+            model="m",
+            enable_image_context=True,
+            max_evidence_images=10,
+        )
+
+        await service.answer(request)
+
+        assert gateway.user_content_calls[0]["max_evidence_images"] == 3
 
     asyncio.run(run())
 
@@ -393,6 +770,25 @@ def test_verify_citations_cleans_double_spaces():
     verified, removed = ChatService._verify_citations(answer, evidence)
     assert "  " not in verified
     assert removed == ["p1 p.99"]
+
+
+def test_verify_packet_citations_removes_scoped_citations_when_packet_has_no_accepted_pages():
+    packet = EvidencePacket(
+        packet_id="ep-empty",
+        query="Q?",
+        paper_scope=["p1"],
+        units=[],
+        citations=[],
+        limits=["Scoped retrieval returned no evidence; no paper citations are available."],
+    )
+
+    verified, removed = ChatService._verify_citations_against_packet(
+        "The missing result is shown at p1 p.2.",
+        packet,
+    )
+
+    assert "p1 p.2" not in verified
+    assert removed == ["p1 p.2"]
 
 
 def test_answer_stream_done_frame_includes_removed_citations_in_stats():

@@ -2,8 +2,10 @@ import asyncio
 
 from app.core.config import Settings
 from app.core.paths import StoragePaths
+from app.schemas.evidence import EvidenceCitation, EvidencePacket, EvidenceRankTrace, EvidenceUnit
 from app.schemas.chat import ChatRequest
 from app.schemas.retrieval import PageEvidence
+from app.services import context_builder
 from app.services.context_builder import PAPERMEMORY_SYSTEM_PROMPT as BUILDER_SYSTEM_PROMPT
 from app.services.context_builder import RECENT_CONVERSATION_MESSAGE_LIMIT
 from app.services.context_builder import build_evisrag_prompt as build_context_prompt
@@ -123,6 +125,56 @@ def test_evisrag_prompt_does_not_trust_evidence_image_url() -> None:
 
     assert local_image_url not in prompt
     assert "image_ref=/papers/paper-1/pages/7/image" in prompt
+
+
+def test_evidence_packet_prompt_includes_packet_ids_traces_citations_and_limits() -> None:
+    unit = EvidenceUnit(
+        evidence_id="ev-paper-1-p4-hybrid",
+        paper_id="paper-1",
+        page_number=4,
+        source="hybrid_page",
+        score=0.03278688524590164,
+        image_url="/papers/paper-1/pages/4/image",
+        title="Packet-aware retrieval",
+        caption="BM25 snippet describing the validated evidence packet.",
+        metadata={"rrf_k": "60"},
+        rank_trace=[
+            EvidenceRankTrace(retriever="visrag", source="visrag_page", rank=2, score=0.91),
+            EvidenceRankTrace(retriever="bm25", source="text_page", rank=1, score=8.5),
+        ],
+        validation_state="validated",
+    )
+    packet = EvidencePacket(
+        packet_id="ep-test",
+        query="How does hybrid retrieval work?",
+        paper_scope=["paper-1"],
+        units=[unit],
+        citations=[
+            EvidenceCitation(
+                evidence_id=unit.evidence_id,
+                paper_id="paper-1",
+                page_number=4,
+                label="paper-1 p.4",
+            )
+        ],
+        limits=["Text manifest missing for one or more scoped papers."],
+    )
+
+    prompt = context_builder.build_evidence_packet_prompt(
+        question="How does hybrid retrieval work?",
+        evidence_packet=packet,
+        retrieval_attempted=True,
+    )
+
+    assert "Final citations may only use these accepted citation labels: paper-1 p.4" in prompt
+    assert "evidence_id=ev-paper-1-p4-hybrid" in prompt
+    assert "citation_id=paper-1 p.4" in prompt
+    assert "source=hybrid_page" in prompt
+    assert "score=0.0328" in prompt
+    assert "rank_trace=visrag r2 score=0.9100; bm25 r1 score=8.5000" in prompt
+    assert "caption=BM25 snippet describing the validated evidence packet." in prompt
+    assert "Packet limits:" in prompt
+    assert "Text manifest missing for one or more scoped papers." in prompt
 
 
 def test_empty_evidence_prompt_uses_conversation_mode() -> None:
@@ -285,7 +337,15 @@ def test_chat_service_adds_page_image_content_when_enabled(tmp_path) -> None:
         page_image_resolver=PageImageResolver(StoragePaths(settings)),
     )
 
-    response = asyncio.run(service.answer(ChatRequest(question="What is shown?", paper_ids=["paper-1"])))
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                question="What is shown?",
+                paper_ids=["paper-1"],
+                enable_reliability_layer=False,
+            )
+        )
+    )
     user_content = gateway.messages[-1]["content"]
 
     assert response.status == "success"
@@ -332,6 +392,7 @@ def test_chat_service_uses_caption_when_image_context_is_disabled(tmp_path) -> N
                 question="What is shown?",
                 paper_ids=["paper-1"],
                 enable_image_context=False,
+                enable_reliability_layer=False,
             )
         )
     )
@@ -372,6 +433,7 @@ def test_chat_request_can_enable_image_context_for_one_request(tmp_path) -> None
                 paper_ids=["paper-1"],
                 enable_image_context=True,
                 max_evidence_images=1,
+                enable_reliability_layer=False,
             )
         )
     )
@@ -405,7 +467,15 @@ def test_chat_service_ignores_malicious_payload_image_path(tmp_path) -> None:
         page_image_resolver=PageImageResolver(StoragePaths(settings)),
     )
 
-    response = asyncio.run(service.answer(ChatRequest(question="What is shown?", paper_ids=["paper-1"])))
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                question="What is shown?",
+                paper_ids=["paper-1"],
+                enable_reliability_layer=False,
+            )
+        )
+    )
     user_content = gateway.messages[-1]["content"]
 
     assert response.status == "success"
@@ -415,10 +485,9 @@ def test_chat_service_ignores_malicious_payload_image_path(tmp_path) -> None:
     assert response.stats.evidence_count == 1
     assert response.stats.included_image_count == 0
     assert response.limits == ["Text-only evidence context; no page images were included."]
-    assert user_content == service.build_evisrag_prompt(
-        question="What is shown?",
-        evidence=service.vector_store.evidence,  # type: ignore[attr-defined]
-    )
+    assert user_content == response.prompt_preview
+    assert "Final citations may only use these accepted citation labels: paper-1 p.1" in user_content
+    assert "evidence_id=" in user_content
     assert str(external_image) not in user_content
 
 
@@ -446,7 +515,15 @@ def test_chat_service_uses_controlled_page_image_despite_malicious_payload_path(
         page_image_resolver=PageImageResolver(StoragePaths(settings)),
     )
 
-    response = asyncio.run(service.answer(ChatRequest(question="What is shown?", paper_ids=["paper-1"])))
+    response = asyncio.run(
+        service.answer(
+            ChatRequest(
+                question="What is shown?",
+                paper_ids=["paper-1"],
+                enable_reliability_layer=False,
+            )
+        )
+    )
     user_content = gateway.messages[-1]["content"]
 
     assert response.status == "success"

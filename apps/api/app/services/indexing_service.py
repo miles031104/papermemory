@@ -37,7 +37,7 @@ class IndexingService:
         page_paths: Sequence[Path],
         captions: Sequence[str | None] | None = None,
     ) -> None:
-        """Embed all pages concurrently then upsert results to the vector store."""
+        """Embed page images and attach optional page-aligned captions."""
         if not page_paths:
             return
 

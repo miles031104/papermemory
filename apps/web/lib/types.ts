@@ -23,6 +23,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   citations: Citation[];
+  reliability_report?: ApiAnswerReliabilityReport | null;
 }
 
 export interface ResearchLibrary {
@@ -62,7 +63,7 @@ export interface EvidenceItem {
   paperId: string;
   paperTitle: string;
   page: number;
-  retriever: "VisRAG-Ret" | "Qdrant text" | "Hybrid";
+  retriever: "VisRAG-Ret" | "Qdrant text" | "BM25 text" | "Hybrid";
   confidence: number;
   snippet: string;
   imageUrl?: string | null;
@@ -154,6 +155,67 @@ export interface ApiPageEvidence {
   metadata?: Record<string, string> | null;
 }
 
+export type ApiEvidenceSource = "visrag_page" | "text_page" | "hybrid_page" | "manual";
+
+export interface ApiEvidenceRankTrace {
+  retriever: string;
+  source: ApiEvidenceSource;
+  rank: number | null;
+  score: number | null;
+}
+
+export interface ApiEvidenceUnit {
+  evidence_id: string;
+  paper_id: string;
+  page_number: number;
+  source: ApiEvidenceSource;
+  score: number | null;
+  image_url?: string | null;
+  title?: string | null;
+  caption?: string | null;
+  metadata?: Record<string, string> | null;
+  rank_trace: ApiEvidenceRankTrace[];
+  validation_state: "unvalidated" | "validated";
+}
+
+export interface ApiEvidenceCitation {
+  evidence_id: string;
+  paper_id: string;
+  page_number: number;
+  label?: string | null;
+}
+
+export interface ApiEvidencePacket {
+  schema_version: "evidence_packet.v0";
+  packet_id: string;
+  query?: string | null;
+  paper_scope?: string[] | null;
+  units: ApiEvidenceUnit[];
+  citations: ApiEvidenceCitation[];
+  limits: string[];
+}
+
+export type AnswerQualityStatus = "strong" | "partial" | "insufficient";
+
+export interface ApiEvidenceCoverageReport {
+  status: AnswerQualityStatus;
+  covered_paper_ids: string[];
+  missing_paper_ids: string[];
+  covered_claim_types: string[];
+  missing_claim_types: string[];
+  matched_numbers: string[];
+  missing_numbers: string[];
+  targeted_queries: string[];
+  limits: string[];
+}
+
+export interface ApiAnswerReliabilityReport {
+  status: AnswerQualityStatus;
+  unsupported_claim_count: number;
+  limits: string[];
+  coverage: ApiEvidenceCoverageReport;
+}
+
 export type ApiResponseStatus = "success" | "partial" | "error";
 
 export interface ApiRetrievalStats {
@@ -166,6 +228,7 @@ export interface ApiRetrievalResponse {
   status: ApiResponseStatus;
   query: string;
   evidence: ApiPageEvidence[];
+  evidence_packet?: ApiEvidencePacket | null;
   retrieval_model: string;
   note: string | null;
   stats: ApiRetrievalStats;
@@ -183,8 +246,10 @@ export interface ApiChatRequest {
   temperature?: number;
   enable_image_context?: boolean;
   max_evidence_images?: number;
+  retrieval_mode?: "visual" | "hybrid";
   enable_query_rewrite?: boolean;
   enable_agentic_retrieval?: boolean;
+  enable_reliability_layer?: boolean;
   messages?: Array<{
     role: "system" | "user" | "assistant";
     content: string;
@@ -195,6 +260,8 @@ export interface ApiChatResponse {
   status: ApiResponseStatus;
   answer: string;
   evidence: ApiPageEvidence[];
+  evidence_packet?: ApiEvidencePacket | null;
+  reliability_report?: ApiAnswerReliabilityReport | null;
   model: string;
   prompt_preview: string;
   note: string | null;
@@ -215,6 +282,7 @@ export interface ApiWorkspaceMessage {
   role: "user" | "assistant";
   content: string;
   citations: ApiWorkspaceCitation[];
+  reliability_report?: ApiAnswerReliabilityReport | null;
 }
 
 export interface ApiChatSummaryMessage {
@@ -263,6 +331,8 @@ export interface ApiWorkspaceResponse {
 export interface ApiChatStreamDone {
   answer: string;
   evidence: ApiPageEvidence[];
+  evidence_packet?: ApiEvidencePacket | null;
+  reliability_report?: ApiAnswerReliabilityReport | null;
   note: string | null;
   stats: Record<string, unknown>;
   summary_message?: ApiChatSummaryMessage | null;

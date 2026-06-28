@@ -9,7 +9,9 @@ from fastapi import HTTPException, UploadFile
 
 from app.core.paths import StoragePaths
 from app.schemas.papers import PaperMetadata, PaperStatus, is_safe_paper_id
+from app.services.page_text_extractor import PageTextExtractor, TextManifest
 from app.services.pdf_renderer import PdfRenderer
+from app.services.text_manifest_store import TextManifestStore
 
 
 class PageRenderer(Protocol):
@@ -18,7 +20,12 @@ class PageRenderer(Protocol):
 
 
 class PageIndexer(Protocol):
-    async def index_pages(self, paper_id: str, page_paths: Sequence[Path]) -> None:
+    async def index_pages(
+        self,
+        paper_id: str,
+        page_paths: Sequence[Path],
+        captions: Sequence[str | None] | None = None,
+    ) -> None:
         ...
 
 
@@ -30,11 +37,15 @@ class IngestionService:
         paths: StoragePaths,
         renderer: PageRenderer | None = None,
         indexing_service: PageIndexer | None = None,
+        text_extractor: PageTextExtractor | None = None,
+        text_manifest_store: TextManifestStore | None = None,
         max_upload_bytes: int = 100 * 1024 * 1024,
     ) -> None:
         self.paths = paths
         self.renderer = renderer or PdfRenderer()
         self.indexing_service = indexing_service
+        self.text_extractor = text_extractor or PageTextExtractor()
+        self.text_manifest_store = text_manifest_store or TextManifestStore(paths)
         self.max_upload_bytes = max_upload_bytes
         self.paths.ensure_all()
 
@@ -73,7 +84,11 @@ class IngestionService:
             self._write_metadata(failed_metadata)
             raise HTTPException(status_code=422, detail=f"Failed to render PDF pages: {exc}") from exc
 
-        page_texts = await self._extract_page_texts(paper_id=paper_id)
+        text_manifest = await self._extract_text_manifest(paper_id=paper_id)
+        page_texts = self._captions_for_indexing(
+            manifest=text_manifest,
+            rendered_page_count=len(rendered_pages),
+        )
 
         indexing_metadata = metadata.model_copy(
             update={
@@ -144,16 +159,32 @@ class IngestionService:
             None, self.renderer.render_pages, pdf_path, output_dir
         )
 
-    async def _extract_page_texts(self, paper_id: str) -> list[str | None]:
-        """Extract per-page text from the stored PDF; returns empty list on any error."""
-        if not hasattr(self.renderer, "extract_page_texts"):
-            return []
+    async def _extract_text_manifest(self, paper_id: str) -> TextManifest | None:
+        """Extract and persist page text; returns None on extraction/storage errors."""
         pdf_path = self.paths.paper_pdf_path(paper_id)
         loop = asyncio.get_event_loop()
         try:
-            return await loop.run_in_executor(None, self.renderer.extract_page_texts, pdf_path)
+            manifest = await loop.run_in_executor(
+                None,
+                self.text_extractor.extract,
+                pdf_path,
+                paper_id,
+            )
+            await loop.run_in_executor(None, self.text_manifest_store.save, manifest)
+            return manifest
         except Exception:
+            return None
+
+    @staticmethod
+    def _captions_for_indexing(
+        manifest: TextManifest | None,
+        rendered_page_count: int,
+    ) -> list[str | None]:
+        if manifest is None:
             return []
+        if manifest.page_count != rendered_page_count:
+            return []
+        return [page.caption for page in manifest.pages]
 
     async def _write_upload(self, file: UploadFile, destination: Path) -> None:
         total_bytes = 0
@@ -178,3 +209,7 @@ class IngestionService:
     def _cleanup_paper_files(self, paper_id: str) -> None:
         shutil.rmtree(self.paths.paper_dir(paper_id), ignore_errors=True)
         shutil.rmtree(self.paths.page_images_dir(paper_id), ignore_errors=True)
+        try:
+            self.text_manifest_store.path_for(paper_id).unlink(missing_ok=True)
+        except ValueError:
+            pass

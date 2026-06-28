@@ -1,0 +1,17 @@
+\begin{table}[t]
+  \caption{Synthetic retrieval metrics from existing local artifacts. Higher is better for measured percentage columns.}
+  \label{tab:retrieval-summary}
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{YrrrrrY}
+    \toprule
+    Run & R@1 & R@3 & R@5 & Citation & Refusal & Boundary \\
+    \midrule
+    Keyword overlap baseline & 88.9\% & 100.0\% & 100.0\% & 100.0\% & 33.3\% & Same synthetic fixture; token overlap only, not LLM, BM25, VisRAG, or real corpus. \\
+    Visual API baseline & 77.8\% & 100.0\% & 100.0\% & 100.0\% & 33.3\% & Synthetic smoke corpus; not a real PDF or real VisRAG result. \\
+    BM25 text manifest & 88.9\% & 100.0\% & 100.0\% & 100.0\% & 100.0\% & Synthetic BM25-only text manifest fixture. \\
+    Hybrid page fusion & 77.8\% & 100.0\% & 100.0\% & 100.0\% & 33.3\% & Synthetic page-canonical fusion; 27 units carry both traces. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

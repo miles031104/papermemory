@@ -99,6 +99,72 @@ def test_create_conversation_and_update_messages(tmp_path: Path) -> None:
     assert updated.json()["messages"][1]["citations"][0]["paper_id"] == "paper-1"
 
 
+def test_update_conversation_preserves_message_reliability_report(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    library_id = client.get("/workspace").json()["libraries"][0]["id"]
+    created = client.post(
+        f"/workspace/libraries/{library_id}/conversations",
+        json={"title": "Reliability review"},
+    )
+    assert created.status_code == 201
+    conversation_id = created.json()["id"]
+    reliability_report = {
+        "status": "partial",
+        "requirement": {
+            "requirement_id": "er-workspace",
+            "intent": {
+                "intent_type": "numeric_grounding",
+                "confidence": 0.8,
+                "rationale": "Needs number checking.",
+            },
+            "required_claim_types": ["number"],
+            "requires_multi_paper_coverage": False,
+            "minimum_relevant_pages_per_paper": 0,
+            "must_verify_numeric_claims": True,
+            "allow_inference": "labeled_only",
+            "max_targeted_queries": 4,
+        },
+        "coverage": {
+            "requirement_id": "er-workspace",
+            "status": "partial",
+            "covered_paper_ids": ["paper-1"],
+            "missing_paper_ids": [],
+            "covered_claim_types": ["number"],
+            "missing_claim_types": [],
+            "matched_numbers": ["42"],
+            "missing_numbers": [],
+            "targeted_queries": [],
+            "limits": ["Only one page supported the number."],
+        },
+        "claims": [],
+        "unsupported_claim_count": 1,
+        "limits": ["One numeric claim needs more evidence."],
+    }
+
+    updated = client.patch(
+        f"/workspace/conversations/{conversation_id}",
+        json={
+            "messages": [
+                {
+                    "id": "msg-reliable",
+                    "role": "assistant",
+                    "content": "The measured value is 42.",
+                    "citations": [],
+                    "reliability_report": reliability_report,
+                }
+            ]
+        },
+    )
+
+    assert updated.status_code == 200
+    workspace = client.get("/workspace").json()
+    conversation = next(item for item in workspace["conversations"] if item["id"] == conversation_id)
+    report = conversation["messages"][0]["reliability_report"]
+    assert report["status"] == "partial"
+    assert report["unsupported_claim_count"] == 1
+    assert report["limits"] == ["One numeric claim needs more evidence."]
+
+
 def test_delete_conversation_removes_chat_history_only(tmp_path: Path) -> None:
     client = _client(tmp_path)
     library_id = client.get("/workspace").json()["libraries"][0]["id"]

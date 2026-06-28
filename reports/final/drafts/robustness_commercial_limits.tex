@@ -1,0 +1,49 @@
+\section{Trust, Safety, and Robustness}
+\label{sec:trust-robustness}
+
+Trust in PaperMemory depends on visible failure behavior. A research assistant can be useful only if the user can see when the evidence packet is strong, partial, or insufficient. PaperMemory therefore treats every answer as a product of selected papers, accepted EvidenceUnits, packet limits, and a reliability status. The status is a review signal for the user. It is not a correctness certificate.
+
+\input{tables/robustness}
+
+The robustness package covers common ways a PDF-grounded assistant can fail. With an empty scope, PaperMemory enters conversation mode and strips paper-style citations because no selected paper evidence exists. With missing scoped evidence, the packet is partial, carries no accepted citations, and removes generated page labels that are not supported by the accepted packet. With repeated retrieval, a second pass that finds the same page stops with \texttt{no\_new\_evidence} rather than treating a duplicate as new support.
+
+Prompt-injection-like PDF text is handled as untrusted evidence. The page text may appear inside the accepted evidence section, but planner prompts label it as evidence rather than instruction, extra action fields are rejected, and unsafe planner hints are removed from public traces. Citation drift is handled at serialization time: citations outside accepted packet pages, including unknown-paper labels, are stripped before the answer reaches the user. Conflicting numeric evidence adds a verification-needed limit instead of forcing a single value. Low-text, empty, or OCR-needed pages add a visual-first limit so the assistant does not invent text that was not extracted.
+
+The reliability layer turns these cases into user-facing states. A \texttt{strong} answer has the planned evidence requirements covered by accepted pages. A \texttt{partial} answer can be useful, but the limits explain which evidence is missing or contested. An \texttt{insufficient} answer tells the user to change scope or add sources before treating the answer as paper-grounded. This is a practical review workflow for controlled local fixtures and live smoke tests. It is not a broad security result, an OCR result, or proof that every unsupported claim will be detected.
+
+\section{Commercial Stress Test}
+\label{sec:commercial-stress}
+
+The commercial question is whether evidence-packet work can save enough expert time to justify a paid workflow while keeping human verification in place. Node 9 models that question with:
+\[
+\text{net savings} = (h_m - h_p - h_v) r - c_a - c_l,
+\]
+where $h_m$ is manual work, $h_p$ is PaperMemory operation time, $h_v$ is human verification time, $r$ is a fully loaded hourly rate, $c_a$ is API or compute cost, and $c_l$ is a license allocation. The formula makes verification a cost, not an optional afterthought.
+
+\input{tables/cost_summary}
+
+The per-scenario API or compute cost is small in the current stress test: 0.39~USD for a 20-PDF evidence packet, 1.13~USD for a 50-PDF consulting/R\&D evidence scan, and 1.62~USD for systematic-review pre-screening. Base-case net savings are 373.97~USD, 938.46~USD, and 3423.86~USD after operation, verification, API/compute, and license assumptions. The low case for systematic-review pre-screening is -232.20~USD, which matters. It shows that the value case can fail when verification time and deployment assumptions dominate.
+
+\input{tables/pricing_tiers}
+
+The interview signal supports a subscription experiment rather than a BYOK-only product. Seven of 10 interviewed postgraduate researchers preferred PaperMemory-provided API/model access through a monthly subscription. The proposed packaging keeps the free tier as BYOK, then tests 10~USD/month and 20~USD/month managed-access tiers. Those tiers are plausible only with capped included model usage, rate limits, or a fair-use policy. Exact quotas should come from usage telemetry, not this report.
+
+This stress test does not prove paid conversion, retention, production margins, hosting cost, support cost, abuse cost, or legal cost. It also does not make PaperMemory a systematic-review replacement. The stronger commercial claim is narrower: under the current assumptions, API cost is not the main blocker for first-pass evidence gathering. The product risk sits in user adoption, verification effort, usage variance, and deployment licensing.
+
+\section{Limitations, Ethics, and Reproducibility}
+\label{sec:limitations-ethics-reproducibility}
+
+The evaluation package is local and controlled. Retrieval metrics come from synthetic fixtures, not a broad scholarly PDF benchmark. The live test uses a small controlled corpus and includes one duplicate-upload pollution caveat. Text extraction is selectable-text only; low-text and scanned pages are flagged, but OCR is future work. The text path uses BM25 and page-canonical fusion, not dense semantic text retrieval. The reliability layer checks packet support for answer claims, but it does not establish exhaustive literature coverage.
+
+The market evidence is also early. The interview sample has 10 postgraduate researchers, a mean conditional purchase likelihood of 4.2/5, and a 70\% preference for managed API/model access. Those numbers justify a product experiment, not a claim about paid adoption. The planned 10~USD/month and 20~USD/month tiers still need pricing tests, usage telemetry, support estimates, and churn data.
+
+Ethically, PaperMemory should remain a first-pass assistant. It can reduce citation packaging work, but users still need to inspect cited pages before academic, medical, legal, or policy use. The local-first and BYOK options reduce some centralization risk, yet external model APIs may still receive prompts and evidence snippets if the user configures them. Public traces therefore avoid local paths and unsafe planner hints, and generated citations are constrained to accepted packet pages.
+
+Reproducibility materials live under the active repository root \artifact{D:/codex/papermemory}. The older \artifact{D:/codex/llm\_paper\_assis/papermemory} path is now a junction to the same working tree. Appendix~\ref{app:reproducibility} records the branch, baseline environment, LaTeX command, and verification snapshots. Appendix~\ref{app:interview-validation} records the interview sample, question framing, aggregate results, and limits. Appendix~\ref{app:robustness-cost} records the robustness gallery and cost assumptions.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+PaperMemory addresses a concrete research workflow: turning a local PDF collection into cited first-pass evidence that a human can inspect. The current system is more than a chat box because it combines visual and text retrieval, page-canonical fusion, EvidencePackets, bounded evidence seeking, reliability status, and UI evidence surfacing. The strongest evidence is still local: synthetic retrieval fixtures, deterministic robustness tests, a controlled live run, early postgraduate interviews, and a cost stress test.
+
+The next steps are practical rather than rhetorical. PaperMemory needs real local-corpus evaluation, OCR and dense text retrieval experiments, usage telemetry for the proposed subscription tiers, and clearer licensing decisions before deployment. Until then, the right claim is bounded: PaperMemory is a plausible local-first assistant for first-pass evidence gathering and citation packaging, with visible limits and human verification built into the workflow.

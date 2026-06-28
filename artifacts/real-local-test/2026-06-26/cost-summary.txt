@@ -1,0 +1,21 @@
+Commercial claim boundary:
+PaperMemory is positioned as first-pass evidence gathering, citation packaging, and human-verification acceleration.
+It does not replace systematic-review adjudication.
+The cost-benefit model is a stress test using token and labor assumptions, not guaranteed ROI.
+
+Generated artifacts:
+- reports/final/results/cost_benefit.csv
+- reports/final/results/cost_benefit.md
+
+Verification:
+- python -m pytest apps/api/tests/test_estimate_run_cost.py -q -> 4 passed.
+- python scripts/estimate_run_cost.py --write-reports -> regenerated CSV and Markdown.
+
+Base-case stress-test rows:
+- 20-PDF evidence packet: API/compute cost $0.39; base net savings $373.97.
+- 50-PDF consulting/R&D landscape: API/compute cost $1.13; base net savings $938.46.
+- Systematic-review pre-screening: API/compute cost $1.62; base net savings $3423.86.
+
+Source boundary:
+- Pricing/wage source snapshot date in the generated report is 2026-06-24.
+- Refresh pricing and wage sources before final report freeze or investor/customer-facing use.

@@ -4,6 +4,8 @@ import re
 
 from pydantic import BaseModel, Field
 
+from app.schemas.reliability import AnswerReliabilityReport
+
 
 WORKSPACE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
 _WORKSPACE_ID_RE = re.compile(WORKSPACE_ID_PATTERN)
@@ -29,6 +31,7 @@ class WorkspaceMessage(BaseModel):
     role: WorkspaceMessageRole
     content: str
     citations: list[WorkspaceCitation] = Field(default_factory=list)
+    reliability_report: AnswerReliabilityReport | None = None
 
 
 class ResearchLibrary(BaseModel):

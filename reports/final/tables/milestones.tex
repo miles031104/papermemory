@@ -1,0 +1,16 @@
+\begin{table}[t]
+  \caption{Evidence-contract milestones used by chat, UI, and bounded orchestration.}
+  \label{tab:milestones}
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{p{0.13\linewidth}YYY}
+    \toprule
+    Node & Implemented surface & Report evidence & Boundary \\
+    \midrule
+    2 & EvidenceUnit, EvidenceCitation, EvidencePacket, deterministic ids, validation state. & \artifact{evidence\_contract.md} & Contract layer only. \\
+    6 & Scoped hybrid chat packets, SSE evidence and done frames, citation chips, evidence panel provenance. & \artifact{chat\_ui\_packet.md} & No multi-pass planning in this node. \\
+    7 & Server-validated three-pass evidence loop with public-safe trace actions and stop reasons. & \artifact{agent\_trace\_examples.md} & Bounded state machine, not exhaustive review automation. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

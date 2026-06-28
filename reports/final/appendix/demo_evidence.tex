@@ -1,0 +1,24 @@
+\section{Road-Show Evidence Map}
+\label{app:demo-evidence}
+
+The road-show package is recorder-ready rather than a completed video. Readiness is evidenced by timed narration, a shot list, fallback assets, and claim-boundary notes that keep the three-minute recording tied to implemented artifacts instead of invented screen claims.
+
+\begin{table}[h]
+  \caption{Three-minute road-show scenes mapped to implementation evidence.}
+  \label{tab:demo-evidence-map}
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{p{0.18\linewidth}p{0.36\linewidth}Y}
+    \toprule
+    Scene & Claim shown & Evidence artifact \\
+    \midrule
+    Problem & Citation support and uncertainty can be hidden inside ordinary PDF chat. & \path{demo/script.md}; \path{reports/final/claim_evidence_map.md}. \\
+    Agent plan & The assistant runs a bounded evidence loop over selected papers rather than an open-ended literature review. & \path{reports/final/results/agent_trace_examples.md}. \\
+    EvidencePacket & Accepted citations, evidence ids, page links, source modality, and limits are visible to the reader. & \path{reports/final/results/evidence_contract.md}; \path{reports/final/results/chat_ui_packet.md}. \\
+    Bounded repair & A retry must add accepted evidence or stop with a visible reason such as \texttt{no\_new\_evidence}. & \path{reports/final/results/agent_trace_examples.md}. \\
+    Refusal and limits & Missing, conflicting, unsafe, or low-text evidence becomes visible limits, partial answers, or citation stripping. & \path{reports/final/results/failure_gallery.md}; \path{reports/final/results/robustness_matrix.md}. \\
+    Cost close & The cost-benefit section is a planning stress test for first-pass evidence gathering, not a guarantee of ROI. & \path{reports/final/results/cost_benefit.md}; \path{demo/final-video-notes.md}. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

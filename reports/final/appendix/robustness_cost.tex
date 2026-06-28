@@ -1,0 +1,31 @@
+\section{Robustness Failure Gallery and Cost Assumptions}
+\label{app:robustness-cost}
+
+The failure gallery records seven safe-failure snapshots: empty scope, missing scoped evidence, no-new-evidence loop, prompt-injection-like PDF text, citation drift, conflicting evidence, and low-text or scanned markers. The robustness matrix records 11 focused test passes for these fixtures \citep{paperMemoryRobustness,paperMemoryFailureGallery}. The expected behavior is containment and visible limits, not complete prevention of all possible prompt or citation failures.
+
+The cost model uses the Node 9 formula:
+\[
+\text{net savings} = (h_m - h_p - h_v) r - c_a - c_l.
+\]
+Low, base, and high cases vary manual and verification hours. Labor conversion uses annual wage divided by 2080 hours and multiplied by 1.35. Source values for OpenAI pricing, BLS wages, Elicit, and Consensus are a 2026-06-24 planning snapshot, so they should be refreshed before any customer-facing or investor-facing use.
+
+\begin{table}[h]
+  \caption{Cost-model assumptions from \artifact{cost\_benefit.csv}.}
+  \label{tab:appendix-cost-assumptions}
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{YrrrrY}
+    \toprule
+    Scenario & Runs & Input tok. & Cached tok. & Output tok. & Labor profile \\
+    \midrule
+    10-PDF evidence packet & 3 & 175000 & 25000 & 17500 & BLS management analysts, 65.68 USD/hr loaded. \\
+    30-PDF project evidence scan & 6 & 690000 & 120000 & 54000 & BLS data scientists, 73.08 USD/hr loaded. \\
+    Systematic-review pre-screening & 10 & 3500000 & 750000 & 250000 & BLS medical scientists, 65.29 USD/hr loaded. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+PyMuPDF/MuPDF licensing remains unresolved for commercial deployment. The cost table therefore includes planning license allocations, but the paper does not convert those estimates into production margins.
+
+The proposed 10~USD/month and 20~USD/month tiers are tier-economics assumptions rather than validated pricing telemetry. Weekly caps, BYOK fallback above cap, rate limits, and fair-use controls are product controls for provider-compliant managed LLM API relay; the report does not assume consumer-account pooling, unlimited inference, or production margins.

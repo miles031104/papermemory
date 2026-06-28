@@ -10,6 +10,7 @@ from app.schemas.papers import PaperMetadata, PaperStatus
 from app.services.indexing_service import IndexingService
 from app.services.ingestion_service import IngestionService
 from app.services.pdf_renderer import PdfRenderer
+from app.services.text_manifest_store import TextManifestStore
 from app.services.vector_store import VectorStore
 from app.services.visrag_service import EmbeddingResult
 
@@ -113,6 +114,13 @@ def test_local_pdf_render_index_and_retrieve_evidence_smoke(tmp_path: Path) -> N
             assert page_image_path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
             assert settings.qdrant_local_path.is_dir()
 
+            text_manifest = TextManifestStore(StoragePaths(settings)).load(paper.paper_id)
+            assert text_manifest.page_count == 1
+            assert text_manifest.pages[0].quality.quality_label == "good"
+            assert "PaperMemory Phase 1A PDF evidence smoke" in (
+                text_manifest.pages[0].caption or ""
+            )
+
             query_embedding = await visrag.embed_query("find the Phase 1A smoke page")
             evidence = await vector_store.search_pages(
                 embedding=query_embedding.vector,
@@ -127,6 +135,8 @@ def test_local_pdf_render_index_and_retrieve_evidence_smoke(tmp_path: Path) -> N
             assert first.score > 0.99
             assert first.image_path == str(page_image_path)
             assert first.image_url == f"/papers/{paper.paper_id}/pages/1/image"
+            assert first.caption is not None
+            assert "PaperMemory Phase 1A PDF evidence smoke" in first.caption
             assert first.metadata == {
                 "embedding_model": "phase1a-stub-visrag",
                 "embedding_instruction": "Phase 1A deterministic local smoke",

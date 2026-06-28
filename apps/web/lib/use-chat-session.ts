@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { paperMemoryApi } from "@/lib/api";
 import type {
   ApiChatRequest,
+  ApiEvidencePacket,
   ApiPageEvidence,
   ApiWorkspaceMessage,
   ChatMessage,
@@ -39,6 +40,7 @@ interface UseChatSessionReturn {
   isSubmitting: boolean;
   error: string | null;
   evidence: Array<EvidenceItem | ApiPageEvidence>;
+  evidencePacket: ApiEvidencePacket | null;
   evidenceNote: string | null;
   submit: () => void;
   reset: () => void;
@@ -76,12 +78,18 @@ export function useChatSession({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<Array<EvidenceItem | ApiPageEvidence>>([]);
+  const [evidencePacket, setEvidencePacket] = useState<ApiEvidencePacket | null>(null);
   const [evidenceNote, setEvidenceNote] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
+
+  const updateEvidencePacket = (packet: ApiEvidencePacket | null) => {
+    setEvidencePacket(packet);
+  };
 
   // Auto-reset when the active conversation or library changes.
   useEffect(() => {
     setEvidence([]);
+    updateEvidencePacket(null);
     setEvidenceNote(
       activeLibrary
         ? `No evidence loaded for ${activeLibrary.name} yet. Search inside this database to populate page evidence.`
@@ -116,6 +124,7 @@ export function useChatSession({
         installSettings.apiBaseUrl,
       );
       setEvidence(response.evidence);
+      updateEvidencePacket(response.evidence_packet ?? null);
       setEvidenceNote(response.note);
       return response.evidence;
     },
@@ -156,6 +165,7 @@ export function useChatSession({
       setEvidenceNote("Searching for relevant pages…");
     } else {
       setEvidence([]);
+      updateEvidencePacket(null);
       setEvidenceNote("Conversation mode: no ready papers in the active database.");
     }
 
@@ -170,8 +180,10 @@ export function useChatSession({
         temperature: settings.temperature,
         enable_image_context: settings.useMultimodalContext,
         max_evidence_images: settings.maxEvidenceImages,
+        retrieval_mode: readyPaperIds.length > 0 ? "hybrid" : "visual",
         enable_query_rewrite: true,
         enable_agentic_retrieval: true,
+        enable_reliability_layer: true,
       };
 
       const done = await paperMemoryApi.streamChat(
@@ -182,27 +194,38 @@ export function useChatSession({
         },
         // Early evidence frame: update the panel as soon as retrieval finishes,
         // before the first LLM token arrives.
-        (earlyEvidence, earlyNote) => {
+        (earlyEvidence, earlyPacket, earlyNote) => {
           setEvidence(earlyEvidence);
+          updateEvidencePacket(earlyPacket);
           setEvidenceNote(earlyNote);
         },
       );
 
       // Final evidence update from the done frame (may differ after retry).
       setEvidence(done.evidence);
+      updateEvidencePacket(done.evidence_packet ?? null);
       setEvidenceNote(done.note);
 
-      const citations = (done.evidence as ApiPageEvidence[]).slice(0, 4).map((item) => ({
-        paperId: item.paper_id,
-        label: paperTitles[item.paper_id] ?? item.paper_id,
-        page: item.page_number,
-      }));
+      const packetCitations = done.evidence_packet?.citations ?? [];
+      const citations =
+        packetCitations.length > 0
+          ? packetCitations.slice(0, 4).map((citation) => ({
+              paperId: citation.paper_id,
+              label: citation.label ?? `${citation.paper_id} p.${citation.page_number}`,
+              page: citation.page_number,
+            }))
+          : (done.evidence as ApiPageEvidence[]).slice(0, 4).map((item) => ({
+              paperId: item.paper_id,
+              label: paperTitles[item.paper_id] ?? item.paper_id,
+              page: item.page_number,
+            }));
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
         content: done.answer,
         citations,
+        reliability_report: done.reliability_report ?? null,
       };
 
       let nextMessages = [...nextUserMessages, assistantMessage];
@@ -216,6 +239,7 @@ export function useChatSession({
           role: sm.role as "user" | "assistant",
           content: sm.content,
           citations: (sm.citations ?? []).map(mapWorkspaceCitation),
+          reliability_report: null,
         };
         nextMessages = [summaryMsg, ...nextMessages];
       }
@@ -227,6 +251,7 @@ export function useChatSession({
     } catch (err) {
       setError(getErrorMessage(err));
       setEvidence([]);
+      updateEvidencePacket(null);
       setEvidenceNote("Chat failed before PaperMemory could return an answer.");
     } finally {
       setStreamingContent("");
@@ -253,6 +278,7 @@ export function useChatSession({
       }
     }
     setEvidence([]);
+    updateEvidencePacket(null);
     setEvidenceNote(
       activeLibrary
         ? `No evidence loaded for ${activeLibrary.name} yet. Search inside this database to populate page evidence.`
@@ -270,6 +296,7 @@ export function useChatSession({
     if (readyPaperIds.length === 0) {
       const msg = `No ready papers in ${activeLibrary?.name ?? "the active database"}. Upload and index a PDF before searching.`;
       setEvidence([]);
+      updateEvidencePacket(null);
       setEvidenceNote(msg);
       setError(msg);
       return;
@@ -280,6 +307,7 @@ export function useChatSession({
       await doSearchEvidence(trimmedQuestion);
     } catch (err) {
       setEvidence([]);
+      updateEvidencePacket(null);
       setEvidenceNote(getErrorMessage(err));
       setError(getErrorMessage(err));
     }
@@ -292,6 +320,7 @@ export function useChatSession({
     isSubmitting,
     error,
     evidence,
+    evidencePacket,
     evidenceNote,
     submit,
     reset,

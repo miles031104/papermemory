@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { ApiPageEvidence, EvidenceItem } from "@/lib/types";
+import type { ApiEvidencePacket, ApiEvidenceUnit, ApiPageEvidence, EvidenceItem } from "@/lib/types";
 
 interface EvidencePanelProps {
   evidence: Array<EvidenceItem | ApiPageEvidence>;
+  evidencePacket?: ApiEvidencePacket | null;
+  limits?: string[];
   paperTitles?: Record<string, string>;
   note?: string | null;
   apiBaseUrl?: string;
@@ -39,34 +41,71 @@ function resolveEvidenceImageUrl(imageUrl: string | null | undefined, apiBaseUrl
   }
 }
 
+function findPacketUnit(item: ApiPageEvidence, packet?: ApiEvidencePacket | null) {
+  return packet?.units.find(
+    (unit) => unit.paper_id === item.paper_id && unit.page_number === item.page_number,
+  );
+}
+
+function retrieverLabel(unit?: ApiEvidenceUnit): EvidenceItem["retriever"] {
+  if (!unit) {
+    return "VisRAG-Ret";
+  }
+
+  const retrievers = new Set(unit.rank_trace.map((trace) => trace.retriever.toLowerCase()));
+  const hasVisual = retrievers.has("visrag") || unit.source === "visrag_page";
+  const hasText = retrievers.has("bm25") || unit.source === "text_page";
+  if (hasVisual && hasText) {
+    return "Hybrid";
+  }
+  if (hasText) {
+    return "BM25 text";
+  }
+  return "VisRAG-Ret";
+}
+
 function formatEvidence(
   item: EvidenceItem | ApiPageEvidence,
   paperTitles: Record<string, string>,
-  apiBaseUrl?: string
+  apiBaseUrl?: string,
+  packet?: ApiEvidencePacket | null,
 ) {
   if (!isApiEvidence(item)) {
     return item;
   }
 
-  const imageUrl = resolveEvidenceImageUrl(item.image_url, apiBaseUrl);
+  const packetUnit = findPacketUnit(item, packet);
+  const imageUrl = resolveEvidenceImageUrl(packetUnit?.image_url ?? item.image_url, apiBaseUrl);
+  const score = packetUnit?.score ?? item.score;
 
   return {
-    id: `${item.paper_id}-${item.page_number}-${item.score}`,
+    id: packetUnit?.evidence_id ?? `${item.paper_id}-${item.page_number}-${item.score}`,
     paperId: item.paper_id,
-    paperTitle: paperTitles[item.paper_id] ?? item.paper_id,
+    paperTitle: packetUnit?.title ?? paperTitles[item.paper_id] ?? item.paper_id,
     page: item.page_number,
-    retriever: "VisRAG-Ret" as const,
-    confidence: toPercent(item.score),
-    snippet: item.caption ?? "Retrieved page image evidence is available for this result.",
+    retriever: retrieverLabel(packetUnit),
+    confidence: toPercent(score ?? 0),
+    snippet:
+      packetUnit?.caption ??
+      item.caption ??
+      "Retrieved page evidence is available for this result.",
     imageUrl
   };
 }
 
-export function EvidencePanel({ evidence, paperTitles = {}, note, apiBaseUrl }: EvidencePanelProps) {
+export function EvidencePanel({
+  evidence,
+  evidencePacket,
+  limits = [],
+  paperTitles = {},
+  note,
+  apiBaseUrl,
+}: EvidencePanelProps) {
   const normalizedEvidence = useMemo(
-    () => evidence.map((item) => formatEvidence(item, paperTitles, apiBaseUrl)),
-    [apiBaseUrl, evidence, paperTitles],
+    () => evidence.map((item) => formatEvidence(item, paperTitles, apiBaseUrl, evidencePacket)),
+    [apiBaseUrl, evidence, evidencePacket, paperTitles],
   );
+  const visibleLimits = evidencePacket?.limits ?? limits;
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
   const selectedEvidence =
     normalizedEvidence.find((item) => item.id === selectedEvidenceId) ?? null;
@@ -106,6 +145,16 @@ export function EvidencePanel({ evidence, paperTitles = {}, note, apiBaseUrl }: 
         </div>
         <div className="panel__body evidence-panel__body">
           {note ? <p className="inline-alert">{note}</p> : null}
+          {visibleLimits.length > 0 ? (
+            <div className="evidence-limits" aria-label="Packet limits">
+              <p className="small-muted">Packet limits</p>
+              <ul>
+                {visibleLimits.map((limit) => (
+                  <li key={limit}>{limit}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {normalizedEvidence.length === 0 ? (
             <p className="small-muted">No page evidence is attached to the current conversation yet.</p>
           ) : null}

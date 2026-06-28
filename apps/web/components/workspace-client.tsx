@@ -146,6 +146,7 @@ function mapApiWorkspaceMessage(message: ApiWorkspaceMessage): ChatMessage {
     role: message.role,
     content: message.content,
     citations: message.citations.map(mapApiCitation),
+    reliability_report: message.reliability_report ?? null,
   };
 }
 
@@ -155,6 +156,7 @@ function mapMessageToApi(message: ChatMessage): ApiWorkspaceMessage {
     role: message.role,
     content: message.content,
     citations: message.citations.map(mapCitationToApi),
+    reliability_report: message.reliability_report ?? null,
   };
 }
 
@@ -333,6 +335,7 @@ export function WorkspaceClient() {
     isSubmitting: isChatSubmitting,
     error: chatError,
     evidence,
+    evidencePacket,
     evidenceNote,
     submit: handleSubmitQuestion,
     reset: resetChat,
@@ -990,6 +993,7 @@ export function WorkspaceClient() {
               isSubmitting={isChatSubmitting}
               error={chatError}
               evidence={evidence}
+              evidencePacket={evidencePacket}
               evidenceNote={evidenceNote}
               paperTitles={paperTitles}
               apiBaseUrl={installSettings.apiBaseUrl}

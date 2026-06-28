@@ -1787,6 +1787,33 @@ h3 {
   color: #061015;
 }
 
+.reliability-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.74rem;
+  font-weight: 780;
+  line-height: 1.25;
+}
+
+.reliability-badge--strong {
+  background: var(--success-soft);
+  color: #bfffd2;
+}
+
+.reliability-badge--partial {
+  background: var(--amber-soft);
+  color: #ffe0a0;
+}
+
+.reliability-badge--insufficient {
+  background: var(--danger-soft);
+  color: #ffc4ca;
+}
+
 .composer {
   display: grid;
   gap: 10px;
@@ -1925,6 +1952,25 @@ h3 {
   display: grid;
   align-content: start;
   gap: 12px;
+}
+
+.evidence-limits {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 9px 10px;
+}
+
+.evidence-limits ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .evidence-card-button {

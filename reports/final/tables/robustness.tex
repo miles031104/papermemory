@@ -1,0 +1,20 @@
+\begin{table}[t]
+  \caption{Deterministic robustness package. Each case is a local regression fixture, not an adversarial benchmark.}
+  \label{tab:robustness}
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{YYY}
+    \toprule
+    Case & Expected behavior & Boundary \\
+    \midrule
+    Empty scope & Conversation-mode limit and paper-style citation stripping. & No proof that all unsupported prose is detected. \\
+    Missing evidence & Partial packet with no accepted citations. & Covers empty accepted packets for known scope. \\
+    No-new-evidence loop & Stop reason records zero evidence delta. & Page dedupe, not semantic novelty. \\
+    Prompt-injection-like PDF text & PDF text remains untrusted evidence; unsafe planner hints are redacted. & Pattern-based deterministic phrases. \\
+    Citation drift & Unsupported page labels are stripped. & Simple \texttt{paper\_id p.N} labels. \\
+    Conflicting numeric evidence & Verification-needed limit is surfaced. & Numeric heuristic only. \\
+    Low-text marker & Visual-first limit warns against invented missing text. & OCR remains future work. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

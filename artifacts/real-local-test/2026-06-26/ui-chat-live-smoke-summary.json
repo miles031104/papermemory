@@ -1,0 +1,21 @@
+{
+  "status": "success",
+  "chatResponseStatus": 200,
+  "chatResponses": [
+    {
+      "url": "http://127.0.0.1:8000/chat?stream=true",
+      "status": 200,
+      "contentType": "text/event-stream; charset=utf-8"
+    }
+  ],
+  "screenshotPath": "D:\\codex\\llm_paper_assis\\papermemory\\artifacts\\real-local-test\\2026-06-26\\ui-chat-live-answer.png",
+  "summary": {
+    "visibleTextPrefix": "PAPERMEMORY Research Workspace API online Home Chat Paper Manager Settings LIBRARIES + Inbox 4 papers x Ungrouped uploads 4 x GROUPS + CONVERSATIONS + Research chat Jun 26 x Workspace data is stored in the local JSON workspace. GROUP RAG SCOPE Chat with: Ungrouped uploads 4 ready paper(s), 10 indexed page(s). GROUP-SCOPED RAG Chat with Ungrouped uploads Questions use only the selected group's ready papers. Clear In one concise answer, compare VisRAG page-image search with BM25 exact matching and cite pages. PM Answer VisRAG page-image search retrieves rendered PDF pages as visual evidence before answer generation, while BM25 exact matching uses a selectable text manifest for exact-term retrieval of method names, datasets, and abbreviations. Evidence cbd894b2c8af4b8895d92844e2911067 p.1 — VisRAG retrieves rendered PDF pages as visual evidence before answer generation. 086afb68ebad461ba4fec8f35042ab87 p.1 — BM25 exact matching uses a selectable text manifest for exact-term retrieval of method names, datasets, and abbreviations. 086afb68ebad461ba4fec8f35042ab87 p.2 — PyMuPDF text manifest stores deterministic extracted text, character/word counts, and quality labels. Limits All cited ",
+    "latestAssistantPrefix": "Answer VisRAG page-image search retrieves rendered PDF pages as visual evidence before answer generation, while BM25 exact matching uses a selectable text manifest for exact-term retrieval of method names, datasets, and abbreviations. Evidence cbd894b2c8af4b8895d92844e2911067 p.1 — VisRAG retrieves rendered PDF pages as visual evidence before answer generation. 086afb68ebad461ba4fec8f35042ab87 p.1 — BM25 exact matching uses a selectable text manifest for exact-term retrieval of method names, datasets, and abbreviations. 086afb68ebad461ba4fec8f35042ab87 p.2 — PyMuPDF text manifest stores deterministic extracted text, character/word counts, and quality labels. Limits All cited evidence is marked [weak]; the comparison relies on short text snippets rather than full context. The provided pages describe each method separately but do not contain a direct side-by-side discussion of their relative strengths or tradeoffs.",
+    "citationChipCount": 4,
+    "evidenceItemCount": 8,
+    "inlineErrors": []
+  },
+  "consoleMessages": [],
+  "requestFailures": []
+}

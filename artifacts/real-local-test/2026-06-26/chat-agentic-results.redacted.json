@@ -1,0 +1,37 @@
+{
+  "selected_papers": {
+    "visrag-core.pdf": {
+      "paper_id": "3870624062cf4a10b2cf864432639731",
+      "title": "Real Test VisRAG Core",
+      "filename": "visrag-core.pdf",
+      "page_count": 2,
+      "status": "ready"
+    },
+    "bm25-exact.pdf": {
+      "paper_id": "086afb68ebad461ba4fec8f35042ab87",
+      "title": "Real Test BM25 Exact",
+      "filename": "bm25-exact.pdf",
+      "page_count": 3,
+      "status": "ready"
+    },
+    "agent-robustness.pdf": {
+      "paper_id": "5ff9319a6c89448c8f695491b9880774",
+      "title": "Real Test Agent Robustness",
+      "filename": "agent-robustness.pdf",
+      "page_count": 3,
+      "status": "ready"
+    }
+  },
+  "attempts": [
+    {
+      "attempt": "image",
+      "http_status": 502,
+      "error": "{\"detail\": \"Model provider error: provider returned HTTP 401: {'type': 'error', 'error': {'type': 'authorized_error', 'message': 'invalid api key=[redacted], 'http_code': '401'}, 'request_id': '068d730c0e31c7d6cf3ab5a08cadfa00'}\"}"
+    },
+    {
+      "attempt": "text",
+      "http_status": 502,
+      "error": "{\"detail\": \"Model provider error: provider returned HTTP 401: {'type': 'error', 'error': {'type': 'authorized_error', 'message': 'invalid api key=[redacted], 'http_code': '401'}, 'request_id': '068d730d0a412a3c51e6435caae8aa13'}\"}"
+    }
+  ]
+}

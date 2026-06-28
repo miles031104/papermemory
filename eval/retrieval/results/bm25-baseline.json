@@ -1,0 +1,911 @@
+{
+  "boundary": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+  "corpus": [
+    {
+      "group_id": "group-visual-retrieval",
+      "page_number": 1,
+      "paper_id": "demo-visrag-core",
+      "title": "VisRAG Page-Image Retrieval"
+    },
+    {
+      "group_id": "group-visual-retrieval",
+      "page_number": 2,
+      "paper_id": "demo-visrag-core",
+      "title": "Layout And Figure Grounding"
+    },
+    {
+      "group_id": "group-visual-retrieval",
+      "page_number": 3,
+      "paper_id": "demo-visrag-core",
+      "title": "Hybrid Fusion Bridge"
+    },
+    {
+      "group_id": "group-text-retrieval",
+      "page_number": 1,
+      "paper_id": "demo-bm25-text",
+      "title": "Planned BM25 Exact-Term Text Baseline"
+    },
+    {
+      "group_id": "group-text-retrieval",
+      "page_number": 2,
+      "paper_id": "demo-bm25-text",
+      "title": "Planned PyMuPDF Text Manifest"
+    },
+    {
+      "group_id": "group-text-retrieval",
+      "page_number": 3,
+      "paper_id": "demo-bm25-text",
+      "title": "OCR Needed Flag"
+    },
+    {
+      "group_id": "group-agentic-retrieval",
+      "page_number": 1,
+      "paper_id": "demo-agentic-rag",
+      "title": "Bounded Query Planner"
+    },
+    {
+      "group_id": "group-agentic-retrieval",
+      "page_number": 2,
+      "paper_id": "demo-agentic-rag",
+      "title": "Zero-Result Retry And Refusal"
+    },
+    {
+      "group_id": "group-agentic-retrieval",
+      "page_number": 3,
+      "paper_id": "demo-agentic-rag",
+      "title": "Evidence Delta Gate"
+    },
+    {
+      "group_id": "group-evaluation-risk",
+      "page_number": 1,
+      "paper_id": "demo-risk-eval",
+      "title": "Negative Case Design"
+    },
+    {
+      "group_id": "group-evaluation-risk",
+      "page_number": 2,
+      "paper_id": "demo-risk-eval",
+      "title": "Page Citation Correctness"
+    },
+    {
+      "group_id": "group-evaluation-risk",
+      "page_number": 3,
+      "paper_id": "demo-risk-eval",
+      "title": "Future EvidencePacket Commercial Value"
+    }
+  ],
+  "generated_at": "2026-06-24T09:36:11.960937+00:00",
+  "metrics": {
+    "Recall@1": 0.8888888888888888,
+    "Recall@3": 1.0,
+    "Recall@5": 1.0,
+    "citation_page_correctness": 1.0,
+    "negative_case_share": 0.25,
+    "positive_question_count": 9,
+    "question_count": 12,
+    "refusal_correctness": 1.0,
+    "refusal_question_count": 3
+  },
+  "mode": "bm25-synthetic",
+  "output_prefix": "bm25-baseline",
+  "questions": [
+    {
+      "answer_key": "VisRAG retrieves by embedding rendered PDF page images rather than relying only on parsed text.",
+      "citation_page_correct": true,
+      "evidence_count": 3,
+      "evidence_pages": [
+        "demo-visrag-core:1",
+        "demo-visrag-core:3",
+        "demo-visrag-core:2"
+      ],
+      "expected_pages": [
+        "demo-visrag-core:1"
+      ],
+      "group_id": "group-visual-retrieval",
+      "id": "gq-001",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-visrag-core:1"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-visrag-core"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "No real local PDF corpus is present under storage.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Which page describes VisRAG as page-image retrieval for PaperMemory?",
+      "question_type": "single_paper_fact",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "visrag",
+            "vis",
+            "rag",
+            "page-image",
+            "image",
+            "retrieval",
+            "papermemory",
+            "memory"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-visrag-core",
+          "rank": 1,
+          "score": 19.592228090797807,
+          "snippet": "VisRAG page-image retrieval embeds rendered PDF pages and page images for visual evidence search in PaperMemory.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "retrieval"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-visrag-core",
+          "rank": 2,
+          "score": 0.6055819310720918,
+          "snippet": "Hybrid RRF fusion can combine visual page retrieval with future text ranks while keeping page provenance.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "retrieval"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-visrag-core",
+          "rank": 3,
+          "score": 0.5583823771468192,
+          "snippet": "Visual retrieval preserves layout, figure, table, and diagram cues that may be lost in text-only extraction.",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The layout and figure page explains that visual retrieval can preserve figure, table, diagram, and layout cues.",
+      "citation_page_correct": true,
+      "evidence_count": 3,
+      "evidence_pages": [
+        "demo-visrag-core:2",
+        "demo-visrag-core:1",
+        "demo-visrag-core:3"
+      ],
+      "expected_pages": [
+        "demo-visrag-core:2"
+      ],
+      "group_id": "group-visual-retrieval",
+      "id": "gq-002",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-visrag-core:2"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-visrag-core"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Synthetic page captions stand in for rendered PDF pages.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Where does the synthetic corpus say layout, figures, and tables help retrieval?",
+      "question_type": "single_paper_fact",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "layout",
+            "retrieval"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-visrag-core",
+          "rank": 1,
+          "score": 3.6766111307041265,
+          "snippet": "Visual retrieval preserves layout, figure, table, and diagram cues that may be lost in text-only extraction.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "retrieval"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-visrag-core",
+          "rank": 2,
+          "score": 0.7525354325820484,
+          "snippet": "VisRAG Page-Image Retrieval",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "retrieval"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-visrag-core",
+          "rank": 3,
+          "score": 0.6055819310720918,
+          "snippet": "Hybrid RRF fusion can combine visual page retrieval with future text ranks while keeping page provenance.",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The planned BM25 text baseline page describes a future lexical exact-term retriever for method names, datasets, and abbreviations.",
+      "citation_page_correct": true,
+      "evidence_count": 2,
+      "evidence_pages": [
+        "demo-bm25-text:1",
+        "demo-bm25-text:2"
+      ],
+      "expected_pages": [
+        "demo-bm25-text:1"
+      ],
+      "group_id": "group-text-retrieval",
+      "id": "gq-003",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-bm25-text:1"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-bm25-text"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "This is a future Node 4 comparator, not an implemented BM25 path.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Which planned page describes BM25 as the future exact-term lexical baseline?",
+      "question_type": "single_paper_fact",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "planned",
+            "bm25",
+            "future",
+            "exact-term",
+            "exact",
+            "term",
+            "lexical",
+            "baseline"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-bm25-text",
+          "rank": 1,
+          "score": 16.943107172221545,
+          "snippet": "A future BM25 lexical baseline is planned to test exact-term retrieval for method names, datasets, variables, abbreviations, and citation tokens.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "planned",
+            "bm25",
+            "future"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-bm25-text",
+          "rank": 2,
+          "score": 3.9280249750241727,
+          "snippet": "A future PyMuPDF manifest stage is planned to create deterministic per-page text and quality metadata for later BM25 indexing.",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The planned PyMuPDF text manifest page records a future deterministic page-text extraction stage with quality flags for later BM25 indexing.",
+      "citation_page_correct": true,
+      "evidence_count": 3,
+      "evidence_pages": [
+        "demo-bm25-text:2",
+        "demo-bm25-text:1",
+        "demo-bm25-text:3"
+      ],
+      "expected_pages": [
+        "demo-bm25-text:2"
+      ],
+      "group_id": "group-text-retrieval",
+      "id": "gq-004",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-bm25-text:2"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-bm25-text"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Text manifests are planned for a later node.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Which planned page records the future PyMuPDF text manifest scenario?",
+      "question_type": "single_paper_fact",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "planned",
+            "future",
+            "pymupdf",
+            "py",
+            "mu",
+            "pdf",
+            "text",
+            "manifest"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-bm25-text",
+          "rank": 1,
+          "score": 16.56517689727457,
+          "snippet": "A future PyMuPDF manifest stage is planned to create deterministic per-page text and quality metadata for later BM25 indexing.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "planned",
+            "future",
+            "text"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-bm25-text",
+          "rank": 2,
+          "score": 3.3278513429444363,
+          "snippet": "Planned BM25 Exact-Term Text Baseline",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "text"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-bm25-text",
+          "rank": 3,
+          "score": 0.8732377530049384,
+          "snippet": "Scanned or weak-text pages should be flagged as OCR needed and kept visual-first until OCR is implemented.",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The OCR-needed page says scanned or weak-text pages should receive an OCR-needed quality flag and remain visual-first.",
+      "citation_page_correct": true,
+      "evidence_count": 3,
+      "evidence_pages": [
+        "demo-bm25-text:3",
+        "demo-bm25-text:2",
+        "demo-bm25-text:1"
+      ],
+      "expected_pages": [
+        "demo-bm25-text:3"
+      ],
+      "group_id": "group-text-retrieval",
+      "id": "gq-005",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-bm25-text:3"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-bm25-text"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "OCR is explicitly out of scope for Node 1.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "What page marks scanned pages as OCR-needed instead of pretending text extraction worked?",
+      "question_type": "single_paper_fact",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "scanned",
+            "ocr",
+            "needed",
+            "text"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-bm25-text",
+          "rank": 1,
+          "score": 9.812918838762394,
+          "snippet": "Scanned or weak-text pages should be flagged as OCR needed and kept visual-first until OCR is implemented.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "text"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-bm25-text",
+          "rank": 2,
+          "score": 1.0821431925000835,
+          "snippet": "Planned PyMuPDF Text Manifest",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "text"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-bm25-text",
+          "rank": 3,
+          "score": 0.7388661386610074,
+          "snippet": "Planned BM25 Exact-Term Text Baseline",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The bounded planner page describes query rewriting, and the zero-result retry page describes retry/refusal behavior when evidence is missing.",
+      "citation_page_correct": true,
+      "evidence_count": 3,
+      "evidence_pages": [
+        "demo-agentic-rag:2",
+        "demo-agentic-rag:1",
+        "demo-agentic-rag:3"
+      ],
+      "expected_pages": [
+        "demo-agentic-rag:1",
+        "demo-agentic-rag:2"
+      ],
+      "group_id": "group-agentic-retrieval",
+      "id": "gq-006",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-agentic-rag:1",
+        "demo-agentic-rag:2"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-agentic-rag"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "This measures retrieval pages, not answer generation.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Which pages describe the bounded query planner and zero-result retry behavior?",
+      "question_type": "multi_page_within_paper",
+      "recall_at_1": 0.5,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "zero-result",
+            "zero",
+            "result",
+            "retry"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-agentic-rag",
+          "rank": 1,
+          "score": 12.47291501422923,
+          "snippet": "Zero-Result Retry And Refusal",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "bounded",
+            "query",
+            "planner"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-agentic-rag",
+          "rank": 2,
+          "score": 9.494207903683776,
+          "snippet": "Bounded Query Planner",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "bounded"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-agentic-rag",
+          "rank": 3,
+          "score": 1.7653741182387084,
+          "snippet": "Follow-up retrieval must add new evidence; otherwise the bounded agent moves to sufficiency or refusal.",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The answer should cite the current VisRAG page-image retrieval page and the planned future BM25 exact-term baseline page.",
+      "citation_page_correct": true,
+      "evidence_count": 5,
+      "evidence_pages": [
+        "demo-visrag-core:1",
+        "demo-bm25-text:1",
+        "demo-bm25-text:2",
+        "demo-visrag-core:3",
+        "demo-visrag-core:2"
+      ],
+      "expected_pages": [
+        "demo-bm25-text:1",
+        "demo-visrag-core:1"
+      ],
+      "group_id": "group-core-demo",
+      "id": "gq-007",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-bm25-text:1",
+        "demo-visrag-core:1"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-visrag-core",
+        "demo-bm25-text"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Primary multi-paper demo question; BM25 content is future scenario wording only.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Compare the current retrieval substrate and planned exact-term baseline: which pages describe VisRAG page-image search and future BM25 exact matching?",
+      "question_type": "multi_paper_comparison",
+      "recall_at_1": 0.5,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "retrieval",
+            "visrag",
+            "vis",
+            "rag",
+            "page-image",
+            "image",
+            "search"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-visrag-core",
+          "rank": 1,
+          "score": 17.5585250039263,
+          "snippet": "VisRAG page-image retrieval embeds rendered PDF pages and page images for visual evidence search in PaperMemory.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "retrieval",
+            "planned",
+            "exact-term",
+            "exact",
+            "term",
+            "baseline",
+            "future",
+            "bm25"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-bm25-text",
+          "rank": 2,
+          "score": 15.56068747133168,
+          "snippet": "A future BM25 lexical baseline is planned to test exact-term retrieval for method names, datasets, variables, abbreviations, and citation tokens.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "planned",
+            "future",
+            "bm25"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-bm25-text",
+          "rank": 3,
+          "score": 3.928024975024173,
+          "snippet": "A future PyMuPDF manifest stage is planned to create deterministic per-page text and quality metadata for later BM25 indexing.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "retrieval",
+            "future"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-visrag-core",
+          "rank": 4,
+          "score": 1.7735651489410738,
+          "snippet": "Hybrid RRF fusion can combine visual page retrieval with future text ranks while keeping page provenance.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "retrieval"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-visrag-core",
+          "rank": 5,
+          "score": 0.5583823771468192,
+          "snippet": "Visual retrieval preserves layout, figure, table, and diagram cues that may be lost in text-only extraction.",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The page-level citation correctness page says citations are correct only when they point to expected paper pages.",
+      "citation_page_correct": true,
+      "evidence_count": 3,
+      "evidence_pages": [
+        "demo-risk-eval:2",
+        "demo-risk-eval:1",
+        "demo-risk-eval:3"
+      ],
+      "expected_pages": [
+        "demo-risk-eval:2"
+      ],
+      "group_id": "group-evaluation-risk",
+      "id": "gq-008",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-risk-eval:2"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-risk-eval"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Citation validation is page-level in this node.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Which page defines page-level citation correctness as an evaluation metric?",
+      "question_type": "metric_definition",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "page-level",
+            "level",
+            "citation",
+            "correctness"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-risk-eval",
+          "rank": 1,
+          "score": 10.832127011482727,
+          "snippet": "Page-level citation correctness checks whether cited evidence pages match the expected paper pages.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "evaluation"
+          ],
+          "page_number": 1,
+          "paper_id": "demo-risk-eval",
+          "rank": 2,
+          "score": 2.1922115786074645,
+          "snippet": "Golden evaluation includes negative questions and refusal cases so the baseline does not measure only happy paths.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "citation"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-risk-eval",
+          "rank": 3,
+          "score": 1.1789283716068195,
+          "snippet": "A future EvidencePacket citation-verification layer is planned to pair local-first privacy with checked page evidence as the commercial value proposition.",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "The commercial privacy scenario page frames a future EvidencePacket citation-verification layer paired with local-first privacy and checked page evidence.",
+      "citation_page_correct": true,
+      "evidence_count": 2,
+      "evidence_pages": [
+        "demo-risk-eval:3",
+        "demo-risk-eval:2"
+      ],
+      "expected_pages": [
+        "demo-risk-eval:3"
+      ],
+      "group_id": "group-evaluation-risk",
+      "id": "gq-009",
+      "library_id": "demo-library-paper-memory",
+      "limits": [],
+      "must_cite_pages": [
+        "demo-risk-eval:3"
+      ],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-risk-eval"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Future commercial scenario wording; EvidencePacket citation verification is planned for later nodes.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Which planned page frames future EvidencePacket citation verification as a local-first commercial scenario?",
+      "question_type": "single_paper_fact",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "refusal_correct": null,
+      "should_refuse": false,
+      "status": "success",
+      "top_evidence": [
+        {
+          "matched_terms": [
+            "planned",
+            "future",
+            "evidencepacket",
+            "packet",
+            "citation",
+            "verification",
+            "local-first",
+            "local",
+            "first",
+            "commercial"
+          ],
+          "page_number": 3,
+          "paper_id": "demo-risk-eval",
+          "rank": 1,
+          "score": 19.62546785853779,
+          "snippet": "A future EvidencePacket citation-verification layer is planned to pair local-first privacy with checked page evidence as the commercial value proposition.",
+          "source": "bm25_text"
+        },
+        {
+          "matched_terms": [
+            "citation"
+          ],
+          "page_number": 2,
+          "paper_id": "demo-risk-eval",
+          "rank": 2,
+          "score": 2.1310088749036873,
+          "snippet": "Page Citation Correctness",
+          "source": "bm25_text"
+        }
+      ]
+    },
+    {
+      "answer_key": "Refuse: the synthetic corpus contains no evidence about mitochondrial ribosome profiling.",
+      "citation_page_correct": null,
+      "evidence_count": 0,
+      "evidence_pages": [],
+      "expected_pages": [],
+      "group_id": "group-core-demo",
+      "id": "gq-010",
+      "library_id": "demo-library-paper-memory",
+      "limits": [
+        "No BM25 text evidence retrieved."
+      ],
+      "must_cite_pages": [],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-visrag-core",
+        "demo-bm25-text",
+        "demo-agentic-rag",
+        "demo-risk-eval"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Missing-evidence negative case.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "What evidence supports mitochondrial ribosome profiling in this corpus?",
+      "question_type": "refusal_missing_evidence",
+      "recall_at_1": null,
+      "recall_at_3": null,
+      "recall_at_5": null,
+      "refusal_correct": true,
+      "should_refuse": true,
+      "status": "partial",
+      "top_evidence": []
+    },
+    {
+      "answer_key": "Refuse: no selected paper scope means retrieval should return no paper evidence.",
+      "citation_page_correct": null,
+      "evidence_count": 0,
+      "evidence_pages": [],
+      "expected_pages": [],
+      "group_id": "group-empty-selection",
+      "id": "gq-011",
+      "library_id": "demo-library-paper-memory",
+      "limits": [
+        "No BM25 text evidence retrieved."
+      ],
+      "must_cite_pages": [],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Exercises current /retrieval/search no-scope behavior.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "When no papers are selected, what evidence can retrieval cite?",
+      "question_type": "refusal_empty_scope",
+      "recall_at_1": null,
+      "recall_at_3": null,
+      "recall_at_5": null,
+      "refusal_correct": true,
+      "should_refuse": true,
+      "status": "partial",
+      "top_evidence": []
+    },
+    {
+      "answer_key": "Refuse: the selected risk/eval paper contains no cancer clinical trial p-values.",
+      "citation_page_correct": null,
+      "evidence_count": 0,
+      "evidence_pages": [],
+      "expected_pages": [],
+      "group_id": "group-evaluation-risk",
+      "id": "gq-012",
+      "library_id": "demo-library-paper-memory",
+      "limits": [
+        "No BM25 text evidence retrieved."
+      ],
+      "must_cite_pages": [],
+      "note": "Synthetic BM25-only baseline over Node 3 TextManifest objects; not a real-PDF, real-corpus, hybrid, RRF, or VisRAG benchmark.",
+      "paper_ids": [
+        "demo-risk-eval"
+      ],
+      "provenance": {
+        "mode": "synthetic",
+        "note": "Hard negative inside a scoped paper set.",
+        "source": "Node 1 smoke corpus"
+      },
+      "question": "Which page gives exact p-values for a cancer clinical trial?",
+      "question_type": "refusal_missing_evidence",
+      "recall_at_1": null,
+      "recall_at_3": null,
+      "recall_at_5": null,
+      "refusal_correct": true,
+      "should_refuse": true,
+      "status": "partial",
+      "top_evidence": []
+    }
+  ],
+  "retriever": {
+    "b": 0.75,
+    "k1": 1.5,
+    "name": "TextRetriever",
+    "source": "bm25_text"
+  }
+}

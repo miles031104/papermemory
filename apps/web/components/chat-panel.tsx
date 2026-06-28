@@ -29,6 +29,20 @@ function scrollToEvidence(paperId: string, page: number) {
   setTimeout(() => el.classList.remove("evidence-item--highlight"), 1500);
 }
 
+function formatCitationLabel(citation: ChatMessage["citations"][number]) {
+  const pageSuffix = `p.${citation.page}`;
+  return citation.label.includes(pageSuffix) ? citation.label : `${citation.label} ${pageSuffix}`;
+}
+
+function formatReliabilityTitle(message: ChatMessage) {
+  const report = message.reliability_report;
+  if (!report) return undefined;
+  const firstLimit = report.limits[0] ?? report.coverage?.limits[0];
+  return firstLimit
+    ? `Reliability: ${report.status}. Limit: ${firstLimit}`
+    : `Reliability: ${report.status}`;
+}
+
 export function ChatPanel({
   messages,
   question,
@@ -77,7 +91,12 @@ export function ChatPanel({
 
       <div className="panel__body">
         <ol className="message-list" aria-label="Chat transcript" ref={listRef}>
-          {messages.map((message) => (
+          {messages.map((message) => {
+            const reliabilityStatus =
+              message.role === "assistant" ? message.reliability_report?.status : undefined;
+            const reliabilityTitle = reliabilityStatus ? formatReliabilityTitle(message) : undefined;
+
+            return (
             <li className={`message message--${message.role}`} key={message.id}>
               {message.role === "assistant" ? (
                 <span className="message__avatar" aria-hidden="true">PM</span>
@@ -100,19 +119,29 @@ export function ChatPanel({
                     {message.citations.map((citation) => (
                       <button
                         className="citation-chip"
-                        key={`${citation.paperId}-${citation.page}`}
+                        key={`${citation.paperId}-${citation.page}-${citation.label}`}
                         type="button"
                         onClick={() => scrollToEvidence(citation.paperId, citation.page)}
-                        aria-label={`Jump to evidence: ${citation.label} page ${citation.page}`}
+                        aria-label={`Jump to evidence: ${formatCitationLabel(citation)}`}
                       >
-                        {citation.label} p.{citation.page}
+                        {formatCitationLabel(citation)}
                       </button>
                     ))}
                   </div>
                 ) : null}
+                {reliabilityStatus ? (
+                  <span
+                    className={`reliability-badge reliability-badge--${reliabilityStatus}`}
+                    title={reliabilityTitle}
+                    aria-label={reliabilityTitle}
+                  >
+                    Reliability: {reliabilityStatus}
+                  </span>
+                ) : null}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ol>
       </div>
 
