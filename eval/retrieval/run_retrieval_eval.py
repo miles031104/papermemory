@@ -41,6 +41,10 @@ REPORT_METRICS_PATH = REPO_ROOT / "reports" / "final" / "results" / "baseline_me
 BM25_REPORT_METRICS_PATH = REPO_ROOT / "reports" / "final" / "results" / "bm25_metrics.md"
 HYBRID_REPORT_METRICS_PATH = REPO_ROOT / "reports" / "final" / "results" / "hybrid_metrics.md"
 KEYWORD_REPORT_METRICS_PATH = REPO_ROOT / "reports" / "final" / "results" / "keyword_baseline_metrics.md"
+SKILL_SECURITY_TESTSET_PATH = REPO_ROOT / "eval" / "skill_security_crossdoc_testset.json"
+REALISTIC_CROSSDOC_REPORT_METRICS_PATH = (
+    REPO_ROOT / "reports" / "final" / "results" / "realistic_crossdoc_metrics.md"
+)
 
 REQUIRED_FIXTURE_FIELDS = {
     "question",
@@ -68,6 +72,10 @@ KEYWORD_SYNTHETIC_BOUNDARY = (
     "Deterministic keyword overlap baseline over synthetic page titles and captions; "
     "not an LLM, BM25, VisRAG, real-PDF, or real-corpus benchmark."
 )
+REALISTIC_CROSSDOC_BOUNDARY = (
+    "Controlled five-question cross-document retrieval fixture derived from "
+    "the skill-security demo corpus; not a broad scholarly-corpus benchmark."
+)
 
 FEATURE_GROUPS = (
     ("visrag", {"visrag", "visual", "image", "images", "page-image", "page", "pages", "rendered"}),
@@ -85,6 +93,7 @@ FEATURE_GROUPS = (
 )
 
 TOKEN_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)?")
+DECIMAL_NUMBER_RE = re.compile(r"\d+\.\d+")
 
 
 @dataclass(frozen=True)
@@ -94,6 +103,22 @@ class SyntheticPage:
     title: str
     caption: str
     group_id: str
+
+
+@dataclass(frozen=True)
+class RealisticCrossdocPage:
+    paper_id: str
+    page_number: int
+    title: str
+    visual_caption: str
+    text: str
+    group_id: str = "group-skill-security-crossdoc"
+
+
+@dataclass(frozen=True)
+class RealisticCrossdocFixture:
+    pages: list[RealisticCrossdocPage]
+    questions: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -218,6 +243,13 @@ class SyntheticVisRAG:
 
     async def embed_query(self, query: str) -> SyntheticEmbedding:
         return SyntheticEmbedding(vector=vectorize_text(query))
+
+
+class RealisticCrossdocVisRAG:
+    model_name = "synthetic-visrag-realistic-crossdoc"
+
+    async def embed_query(self, query: str) -> SyntheticEmbedding:
+        return SyntheticEmbedding(vector=realistic_vectorize_text(query))
 
 
 class SyntheticTextManifestStore:
@@ -356,6 +388,157 @@ def synthetic_pages() -> list[SyntheticPage]:
     ]
 
 
+def build_realistic_crossdoc_fixture() -> RealisticCrossdocFixture:
+    raw_testset = json.loads(SKILL_SECURITY_TESTSET_PATH.read_text(encoding="utf-8"))
+    source_questions = {
+        str(question["id"]): question
+        for question in raw_testset.get("questions", [])
+    }
+    paper_ids = ["skill_inject", "wild_skills", "trojan_whisper"]
+    question_types = {
+        "Q1": "cross_document_synthesis",
+        "Q2": "numeric_grounding",
+        "Q3": "taxonomy_reasoning",
+        "Q4": "defense_reasoning",
+        "Q5": "claim_scoping",
+    }
+    expected_pages = {
+        "Q1": ["skill_inject:1", "skill_inject:3", "wild_skills:1", "trojan_whisper:1"],
+        "Q2": ["skill_inject:1", "wild_skills:1", "wild_skills:2", "trojan_whisper:1"],
+        "Q3": ["wild_skills:1", "wild_skills:2", "trojan_whisper:1", "skill_inject:3"],
+        "Q4": ["skill_inject:1", "skill_inject:4", "wild_skills:2", "trojan_whisper:1"],
+        "Q5": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2",
+        ],
+    }
+
+    pages = [
+        RealisticCrossdocPage(
+            paper_id="skill_inject",
+            page_number=1,
+            title="Skill-Inject Benchmark Scale And Attack Success",
+            visual_caption=(
+                "Skill-file injection benchmark scale and attack success results across "
+                "agent skill tasks."
+            ),
+            text=(
+                "Skill-Inject evaluates 202 injection-task pairs and reports up to 80% "
+                "attack success rate. The evidence says simple filtering and model "
+                "scaling are insufficient for skill-file attacks."
+            ),
+        ),
+        RealisticCrossdocPage(
+            paper_id="skill_inject",
+            page_number=3,
+            title="Contextual Skill Instructions",
+            visual_caption=(
+                "Hidden contextual instructions embedded inside otherwise normal skill "
+                "instructions."
+            ),
+            text=(
+                "Skill-file attacks can place instructions within instructions, using "
+                "contextual phrasing and hidden behavior that activates only under "
+                "particular task conditions."
+            ),
+        ),
+        RealisticCrossdocPage(
+            paper_id="skill_inject",
+            page_number=4,
+            title="Context-Aware Authorization",
+            visual_caption="Authorization controls around context and tool use for agent skills.",
+            text=(
+                "The defense direction points toward context-aware authorization around "
+                "context and tool use, rather than relying on warning prompts, input "
+                "filtering, or larger models as complete protections."
+            ),
+        ),
+        RealisticCrossdocPage(
+            paper_id="wild_skills",
+            page_number=1,
+            title="Malicious Agent Skills In The Wild",
+            visual_caption=(
+                "Real ecosystem malicious skills including Data Thieves and Agent "
+                "Hijackers."
+            ),
+            text=(
+                "The wild-skills study analyzes 98,380 verified skills and finds 157 "
+                "malicious skills with 632 vulnerabilities. It names Data Thieves and "
+                "Agent Hijackers, reports 54.1% tied to a single actor, and notes 93.6% "
+                "removal after disclosure."
+            ),
+        ),
+        RealisticCrossdocPage(
+            paper_id="wild_skills",
+            page_number=2,
+            title="Attack Techniques And Kill Chain",
+            visual_caption="Attack techniques, kill-chain phases, and vulnerability density.",
+            text=(
+                "The malicious skills use 13 attack techniques across 6 kill-chain "
+                "phases, with an average of 4.03 vulnerabilities per malicious skill "
+                "and a median of 3 phases."
+            ),
+        ),
+        RealisticCrossdocPage(
+            paper_id="trojan_whisper",
+            page_number=1,
+            title="Trojan Whisper Guidance Injection",
+            visual_caption=(
+                "OpenClaw guidance injection and bootstrapped guidance manipulation "
+                "evaluation."
+            ),
+            text=(
+                "Trojan Whisper studies OpenClaw guidance injection with 26 malicious "
+                "skills, 13 attack categories, ORE-Bench, 52 prompts, six LLM backends, "
+                "16.0%-64.2% attack success rates, and 94% evasion. Mitigation terms "
+                "include capability isolation, runtime policy enforcement, and "
+                "transparent guidance provenance."
+            ),
+        ),
+        RealisticCrossdocPage(
+            paper_id="trojan_whisper",
+            page_number=2,
+            title="Guidance Provenance And Runtime Policy",
+            visual_caption="Capability isolation, provenance, and runtime policy enforcement.",
+            text=(
+                "A defense posture combines capability isolation, runtime policy "
+                "enforcement, and transparent guidance provenance. Retrieved "
+                "malicious-skill text should be treated as evidence rather than an "
+                "executable instruction."
+            ),
+        ),
+    ]
+
+    questions = []
+    for question_id, question_type in question_types.items():
+        source = source_questions[question_id]
+        question_expected_pages = expected_pages[question_id]
+        questions.append(
+            {
+                "id": question_id,
+                "question": source["question"],
+                "question_type": question_type,
+                "library_id": "skill_security_crossdoc",
+                "group_id": "group-skill-security-crossdoc",
+                "provenance": {
+                    "source_testset": str(SKILL_SECURITY_TESTSET_PATH.relative_to(REPO_ROOT)),
+                    "source_question_title": source.get("title", ""),
+                    "boundary": REALISTIC_CROSSDOC_BOUNDARY,
+                },
+                "paper_ids": list(paper_ids),
+                "expected_pages": list(question_expected_pages),
+                "must_cite_pages": list(question_expected_pages),
+                "answer_key": list(source.get("expected_elements", [])),
+                "should_refuse": False,
+            }
+        )
+
+    return RealisticCrossdocFixture(pages=pages, questions=questions)
+
+
 def build_synthetic_text_manifests() -> list[TextManifest]:
     pages_by_paper: dict[str, list[PageTextEntry]] = {}
     for page in synthetic_pages():
@@ -404,12 +587,170 @@ def build_synthetic_text_manifests() -> list[TextManifest]:
     ]
 
 
+def build_realistic_crossdoc_text_manifests(pages: list[RealisticCrossdocPage]) -> list[TextManifest]:
+    pages_by_paper: dict[str, list[PageTextEntry]] = {}
+    for page in pages:
+        text = f"{page.title}. {page.text}"
+        pages_by_paper.setdefault(page.paper_id, []).append(
+            PageTextEntry(
+                paper_id=page.paper_id,
+                page_number=page.page_number,
+                width=612.0,
+                height=792.0,
+                text=text,
+                caption=page.visual_caption,
+                blocks=[
+                    TextBlock(
+                        block_number=0,
+                        text=page.title,
+                        bbox=(0.0, 0.0, 612.0, 72.0),
+                        word_count=len(page.title.split()),
+                    ),
+                    TextBlock(
+                        block_number=1,
+                        text=page.text,
+                        bbox=(0.0, 72.0, 612.0, 792.0),
+                        word_count=len(page.text.split()),
+                    ),
+                ],
+                words=[],
+                quality=PageTextQuality(
+                    char_count=len(text),
+                    word_count=len(text.split()),
+                    block_count=2,
+                    has_text=True,
+                    ocr_needed=False,
+                    quality_label="good",
+                ),
+            )
+        )
+
+    return [
+        TextManifest(
+            paper_id=paper_id,
+            page_count=len(paper_pages),
+            pages=sorted(paper_pages, key=lambda item: item.page_number),
+        )
+        for paper_id, paper_pages in sorted(pages_by_paper.items())
+    ]
+
+
 def vectorize_text(text: str) -> list[float]:
     tokens = TOKEN_RE.findall(text.lower())
     vector = []
     for _, aliases in FEATURE_GROUPS:
         vector.append(float(sum(1 for token in tokens if token in aliases)))
     return vector
+
+
+REALISTIC_FEATURE_GROUPS = (
+    (
+        "skill_file",
+        {
+            "skill",
+            "skills",
+            "skill-file",
+            "injection",
+            "inject",
+            "instructions",
+            "contextual",
+            "hidden",
+        },
+    ),
+    (
+        "wild_ecosystem",
+        {
+            "wild",
+            "ecosystem",
+            "malicious",
+            "vulnerabilities",
+            "thieves",
+            "hijackers",
+            "kill-chain",
+            "techniques",
+        },
+    ),
+    (
+        "guidance",
+        {
+            "guidance",
+            "openclaw",
+            "trojan",
+            "whisper",
+            "bootstrapped",
+            "ore-bench",
+            "provenance",
+            "lifecycle",
+        },
+    ),
+    (
+        "numbers",
+        {
+            "202",
+            "80",
+            "98380",
+            "157",
+            "632",
+            "541",
+            "936",
+            "13",
+            "6",
+            "403",
+            "3",
+            "26",
+            "52",
+            "160",
+            "642",
+            "94",
+            "six",
+        },
+    ),
+    (
+        "defense",
+        {
+            "defense",
+            "defenses",
+            "authorization",
+            "filtering",
+            "scaling",
+            "capability",
+            "isolation",
+            "runtime",
+            "policy",
+            "mitigation",
+            "evasion",
+        },
+    ),
+    (
+        "report",
+        {
+            "report",
+            "claim",
+            "claims",
+            "overclaim",
+            "benchmark",
+            "evaluation",
+            "evidence",
+            "demonstrate",
+            "boundaries",
+        },
+    ),
+)
+
+
+def _realistic_tokens(text: str) -> set[str]:
+    normalized = text.lower().replace(",", "")
+    tokens = set(TOKEN_RE.findall(normalized))
+    tokens.update(match.group(0).replace(".", "") for match in DECIMAL_NUMBER_RE.finditer(normalized))
+    return tokens
+
+
+def realistic_vectorize_text(text: str) -> list[float]:
+    tokens = _realistic_tokens(text)
+    return [
+        float(sum(1 for token in aliases if token in tokens))
+        for _, aliases in REALISTIC_FEATURE_GROUPS
+    ]
 
 
 def cosine_similarity(left: list[float], right: list[float]) -> float:
@@ -447,6 +788,37 @@ async def build_synthetic_vector_store() -> VectorStore:
                 "embedding_instruction": "Synthetic Node 1 vectorizer over page captions.",
                 "group_id": page.group_id,
                 "synthetic": "true",
+            },
+        )
+    return vector_store
+
+
+async def build_realistic_crossdoc_vector_store(pages: list[RealisticCrossdocPage]) -> VectorStore:
+    settings = Settings(
+        qdrant_mode="local",
+        qdrant_collection="papermemory_realistic_crossdoc_pages",
+        qdrant_local_path=REPO_ROOT / "eval" / "retrieval" / ".realistic_crossdoc_qdrant",
+        qdrant_vector_size=len(realistic_vectorize_text("")),
+    )
+    vector_store = VectorStore(settings=settings, client=SyntheticQdrantClient())
+    for page in pages:
+        await vector_store.upsert_page(
+            paper_id=page.paper_id,
+            page_number=page.page_number,
+            embedding=realistic_vectorize_text(f"{page.title} {page.visual_caption}"),
+            image_path=str(
+                REPO_ROOT
+                / "storage"
+                / "rendered_pages"
+                / page.paper_id
+                / f"page-{page.page_number:04d}.png"
+            ),
+            caption=page.visual_caption,
+            metadata={
+                "embedding_model": "synthetic-visrag-realistic-crossdoc",
+                "embedding_instruction": "Synthetic VisRAG-like vectorizer over page-image captions.",
+                "group_id": page.group_id,
+                "realistic_crossdoc": True,
             },
         )
     return vector_store
@@ -771,6 +1143,180 @@ async def _evaluate_hybrid_rows(rows: list[dict[str, Any]]) -> list[dict[str, An
             }
         )
     return evaluated
+
+
+def evidence_recall_at_5(row: dict[str, Any]) -> float:
+    expected = set(row["expected_pages"])
+    retrieved = set(row["evidence_pages"][:5])
+    return len(expected.intersection(retrieved)) / len(expected) if expected else 0.0
+
+
+def full_support_at_5(row: dict[str, Any]) -> bool:
+    expected = set(row["expected_pages"])
+    retrieved = set(row["evidence_pages"][:5])
+    return bool(expected) and expected.issubset(retrieved)
+
+
+def aggregate_realistic_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    recalls = [evidence_recall_at_5(row) for row in rows]
+    full_support = [full_support_at_5(row) for row in rows]
+    required_counts = [len(row["expected_pages"]) for row in rows]
+    return {
+        "question_count": len(rows),
+        "mean_required_pages": sum(required_counts) / len(required_counts) if required_counts else 0.0,
+        "evidence_recall_at_5": sum(recalls) / len(recalls) if recalls else 0.0,
+        "full_support_count": sum(1 for value in full_support if value),
+        "full_support_at_5": sum(1 for value in full_support if value) / len(full_support)
+        if full_support
+        else 0.0,
+    }
+
+
+def _realistic_expected_page_key(page: Any) -> str:
+    if isinstance(page, str):
+        return page
+    return format_page_key(page_key(page))
+
+
+def _evaluate_realistic_hits(
+    *,
+    method: str,
+    questions: list[dict[str, Any]],
+    hits_by_question: dict[str, list[tuple[str, int]]],
+) -> dict[str, Any]:
+    evaluated = []
+    for question in questions:
+        evidence_pages = [
+            f"{paper_id}:{page_number}"
+            for paper_id, page_number in hits_by_question.get(question["id"], [])[:5]
+        ]
+        expected_pages = [
+            _realistic_expected_page_key(item)
+            for item in question["expected_pages"]
+        ]
+        row = {
+            "id": question["id"],
+            "question": question["question"],
+            "question_type": question["question_type"],
+            "expected_pages": expected_pages,
+            "evidence_pages": evidence_pages,
+        }
+        row["recall_at_5"] = evidence_recall_at_5(row)
+        row["full_support_at_5"] = full_support_at_5(row)
+        evaluated.append(row)
+    return {
+        "method": method,
+        "metrics": aggregate_realistic_metrics(evaluated),
+        "questions": evaluated,
+    }
+
+
+def evaluate_realistic_keyword(fixture: RealisticCrossdocFixture) -> dict[str, Any]:
+    hits_by_question: dict[str, list[tuple[str, int]]] = {}
+    for question in fixture.questions:
+        allowed_papers = {str(paper_id) for paper_id in question["paper_ids"]}
+        question_tokens = _realistic_tokens(question["question"])
+        scored: list[tuple[int, RealisticCrossdocPage]] = []
+        for page in fixture.pages:
+            if page.paper_id not in allowed_papers:
+                continue
+            page_tokens = _realistic_tokens(f"{page.title} {page.visual_caption}")
+            score = len(question_tokens.intersection(page_tokens))
+            scored.append((score, page))
+
+        scored.sort(key=lambda item: (-item[0], item[1].paper_id, item[1].page_number))
+        hits_by_question[question["id"]] = [
+            (page.paper_id, page.page_number)
+            for _, page in scored[:5]
+        ]
+
+    return _evaluate_realistic_hits(
+        method="Keyword overlap baseline",
+        questions=fixture.questions,
+        hits_by_question=hits_by_question,
+    )
+
+
+def evaluate_realistic_visrag(fixture: RealisticCrossdocFixture) -> dict[str, Any]:
+    return asyncio.run(_evaluate_realistic_visrag(fixture))
+
+
+async def _evaluate_realistic_visrag(fixture: RealisticCrossdocFixture) -> dict[str, Any]:
+    vector_store = await build_realistic_crossdoc_vector_store(fixture.pages)
+    visrag = RealisticCrossdocVisRAG()
+    hits_by_question: dict[str, list[tuple[str, int]]] = {}
+    for question in fixture.questions:
+        query_embedding = await visrag.embed_query(question["question"])
+        hits = await vector_store.search_pages(
+            embedding=query_embedding.vector,
+            top_k=5,
+            paper_ids=question["paper_ids"],
+        )
+        hits_by_question[question["id"]] = [
+            (item.paper_id, item.page_number)
+            for item in hits
+        ]
+
+    return _evaluate_realistic_hits(
+        method="VisRAG page-image retrieval",
+        questions=fixture.questions,
+        hits_by_question=hits_by_question,
+    )
+
+
+def evaluate_realistic_bm25(fixture: RealisticCrossdocFixture) -> dict[str, Any]:
+    retriever = TextRetriever.from_manifests(
+        build_realistic_crossdoc_text_manifests(fixture.pages)
+    )
+    hits_by_question: dict[str, list[tuple[str, int]]] = {}
+    for question in fixture.questions:
+        hits = retriever.search(
+            question["question"],
+            paper_ids=question["paper_ids"],
+            top_k=5,
+        )
+        hits_by_question[question["id"]] = [
+            (item.paper_id, item.page_number)
+            for item in hits
+        ]
+
+    return _evaluate_realistic_hits(
+        method="BM25 text-manifest retrieval",
+        questions=fixture.questions,
+        hits_by_question=hits_by_question,
+    )
+
+
+def evaluate_realistic_hybrid(fixture: RealisticCrossdocFixture) -> dict[str, Any]:
+    return asyncio.run(_evaluate_realistic_hybrid(fixture))
+
+
+async def _evaluate_realistic_hybrid(fixture: RealisticCrossdocFixture) -> dict[str, Any]:
+    vector_store = await build_realistic_crossdoc_vector_store(fixture.pages)
+    service = HybridRetrievalService(
+        visrag=RealisticCrossdocVisRAG(),  # type: ignore[arg-type]
+        vector_store=vector_store,
+        manifest_store=SyntheticTextManifestStore(
+            build_realistic_crossdoc_text_manifests(fixture.pages)
+        ),  # type: ignore[arg-type]
+    )
+    hits_by_question: dict[str, list[tuple[str, int]]] = {}
+    for question in fixture.questions:
+        result = await service.search(
+            query=question["question"],
+            paper_ids=question["paper_ids"],
+            top_k=5,
+        )
+        hits_by_question[question["id"]] = [
+            (item.paper_id, item.page_number)
+            for item in result.evidence
+        ]
+
+    return _evaluate_realistic_hits(
+        method="Hybrid page fusion",
+        questions=fixture.questions,
+        hits_by_question=hits_by_question,
+    )
 
 
 def source_coverage_counts(units: list[dict[str, Any]]) -> dict[str, int]:
@@ -1507,17 +2053,148 @@ def write_hybrid_outputs(
     return paths
 
 
+def write_realistic_crossdoc_outputs(
+    output_prefix: str,
+    payload: dict[str, Any],
+) -> dict[str, Path]:
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    REALISTIC_CROSSDOC_REPORT_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "json": RESULTS_DIR / f"{output_prefix}.json",
+        "csv": RESULTS_DIR / f"{output_prefix}.csv",
+        "markdown": RESULTS_DIR / f"{output_prefix}.md",
+        "report": REALISTIC_CROSSDOC_REPORT_METRICS_PATH,
+    }
+
+    write_json(paths["json"], payload)
+
+    fieldnames = [
+        "method",
+        "question_count",
+        "mean_required_pages",
+        "evidence_recall_at_5",
+        "full_support_at_5",
+    ]
+    with paths["csv"].open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for method in payload["methods"]:
+            metrics = method["metrics"]
+            writer.writerow(
+                {
+                    "method": method["method"],
+                    "question_count": metrics["question_count"],
+                    "mean_required_pages": f"{metrics['mean_required_pages']:.1f}",
+                    "evidence_recall_at_5": f"{metrics['evidence_recall_at_5']:.3f}",
+                    "full_support_at_5": f"{metrics['full_support_at_5']:.3f}",
+                }
+            )
+
+    lines = [
+        "# Realistic Cross-Document Retrieval Metrics",
+        "",
+        "Mode: realistic cross-document retrieval fixture from "
+        "`eval/skill_security_crossdoc_testset.json`.",
+        "",
+        "## Summary",
+        "",
+        "| Method | Mean evidence recall@5 | Fully supported questions | Mean required pages |",
+        "| --- | ---: | ---: | ---: |",
+    ]
+    for method in payload["methods"]:
+        metrics = method["metrics"]
+        lines.append(
+            f"| {method['method']} | "
+            f"{metrics['evidence_recall_at_5']:.2f} | "
+            f"{metrics['full_support_count']}/{metrics['question_count']} | "
+            f"{metrics['mean_required_pages']:.2f} |"
+        )
+
+    lines.extend(["", "## Per-Question Results", ""])
+    for method in payload["methods"]:
+        lines.extend(
+            [
+                f"### {method['method']}",
+                "",
+                "| ID | Type | Expected pages | Evidence pages@5 | Evidence recall@5 | Full support@5 |",
+                "| --- | --- | --- | --- | ---: | --- |",
+            ]
+        )
+        for row in method["questions"]:
+            lines.append(
+                "| {id} | {question_type} | {expected} | {evidence} | {recall} | {support} |".format(
+                    id=row["id"],
+                    question_type=row["question_type"],
+                    expected=", ".join(row["expected_pages"]) or "n/a",
+                    evidence=", ".join(row["evidence_pages"][:5]) or "none",
+                    recall=pct(row["recall_at_5"]),
+                    support=md_bool(row["full_support_at_5"]),
+                )
+            )
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Boundary",
+            "",
+            f"- {REALISTIC_CROSSDOC_BOUNDARY}",
+            "- This is a retrieval-only artifact; it does not measure generated answer quality, citation prose, or abstention behavior.",
+            "- Live answer-quality behavior remains a separate artifact and should not be inferred from these retrieval metrics.",
+            "",
+        ]
+    )
+    markdown = "\n".join(lines)
+    paths["markdown"].write_text(markdown, encoding="utf-8")
+    paths["report"].write_text(markdown, encoding="utf-8")
+    return paths
+
+
+def run_realistic_crossdoc_eval(output_prefix: str = "realistic-crossdoc") -> dict[str, Any]:
+    fixture = build_realistic_crossdoc_fixture()
+    methods = [
+        evaluate_realistic_keyword(fixture),
+        evaluate_realistic_visrag(fixture),
+        evaluate_realistic_bm25(fixture),
+        evaluate_realistic_hybrid(fixture),
+    ]
+    payload = {
+        "output_prefix": output_prefix,
+        "generated_at": generated_at_for(RESULTS_DIR / f"{output_prefix}.json"),
+        "mode": "realistic-crossdoc",
+        "boundary": REALISTIC_CROSSDOC_BOUNDARY,
+        "corpus": [
+            {
+                "paper_id": page.paper_id,
+                "page_number": page.page_number,
+                "title": page.title,
+                "group_id": page.group_id,
+            }
+            for page in fixture.pages
+        ],
+        "methods": methods,
+    }
+    write_realistic_crossdoc_outputs(output_prefix, payload)
+    return payload
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run PaperMemory retrieval golden eval.")
     parser.add_argument(
         "--mode",
-        choices=["synthetic", "bm25-synthetic", "hybrid-synthetic", "keyword-synthetic"],
+        choices=[
+            "synthetic",
+            "bm25-synthetic",
+            "hybrid-synthetic",
+            "keyword-synthetic",
+            "realistic-crossdoc",
+        ],
         default="synthetic",
         help=(
             "Evaluation mode. Use synthetic for the current visual/API smoke corpus "
             "bm25-synthetic for the Node 4 text-manifest BM25 baseline, "
             "hybrid-synthetic for the Node 5 fixture hybrid baseline, "
-            "or keyword-synthetic for a deterministic same-fixture keyword overlap baseline."
+            "keyword-synthetic for a deterministic same-fixture keyword overlap baseline, "
+            "or realistic-crossdoc for the skill-security cross-document fixture."
         ),
     )
     parser.add_argument(
@@ -1536,6 +2213,30 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.mode == "realistic-crossdoc":
+        output_prefix = args.output_prefix
+        if output_prefix == "node1-baseline":
+            output_prefix = "realistic-crossdoc"
+        payload = run_realistic_crossdoc_eval(output_prefix)
+        paths = {
+            "json": RESULTS_DIR / f"{output_prefix}.json",
+            "csv": RESULTS_DIR / f"{output_prefix}.csv",
+            "markdown": RESULTS_DIR / f"{output_prefix}.md",
+            "report": REALISTIC_CROSSDOC_REPORT_METRICS_PATH,
+        }
+        print(
+            "Wrote realistic crossdoc retrieval eval outputs: "
+            + ", ".join(f"{name}={path}" for name, path in paths.items())
+        )
+        for method in payload["methods"]:
+            metrics = method["metrics"]
+            print(
+                f"{method['method']}: "
+                f"evidence_recall_at_5={metrics['evidence_recall_at_5']:.3f}, "
+                f"full_support_at_5={metrics['full_support_at_5']:.3f}"
+            )
+        return 0
+
     rows = load_fixture(args.fixture)
     if not 10 <= len(rows) <= 15:
         raise ValueError(f"expected 10-15 golden questions, found {len(rows)}")

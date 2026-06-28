@@ -1,0 +1,5 @@
+method,question_count,mean_required_pages,evidence_recall_at_5,full_support_at_5
+Keyword overlap baseline,5,4.2,0.800,0.200
+VisRAG page-image retrieval,5,4.2,0.810,0.400
+BM25 text-manifest retrieval,5,4.2,0.820,0.400
+Hybrid page fusion,5,4.2,0.850,0.600

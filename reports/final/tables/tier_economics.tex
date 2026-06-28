@@ -1,17 +1,17 @@
 \begin{table}[t]
-  \caption{Illustrative subscription stress test for provider-compliant managed-LLM API relay. Costs reuse the routine 10-PDF and 30-PDF Node 9 estimates and are planning assumptions, not production quotas or validated margins.}
+  \caption{Illustrative subscription stress test for provider-compliant managed-LLM API relay.}
   \label{tab:tier-economics}
   \centering
   \small
   \setlength{\tabcolsep}{3pt}
-  \begin{tabularx}{\linewidth}{p{0.15\linewidth}p{0.22\linewidth}p{0.25\linewidth}Y}
+  \begin{tabularx}{\linewidth}{p{0.2\linewidth}YY}
     \toprule
-    Tier & Modeled month & API cost and headroom & Boundary \\
+    Tier & Modeled month & API cost and headroom \\
     \midrule
-    Free BYOK & User-supplied model/key. & 0~USD PaperMemory model spend; 0~USD subscription revenue. & Adoption tier; group/request limits control local load, and human verification remains required. \\
-    10~USD/month & Four 10-PDF evidence-packet runs. & 4 $\times$ 0.19 = 0.76~USD; 9.24~USD before non-model costs. & Light-use stress case, not a promised quota; over-cap use falls back to BYOK or wait. \\
-    20~USD/month & Four 30-PDF evidence-scan runs. & 4 $\times$ 0.68 = 2.72~USD; 17.28~USD before non-model costs. & Heavier-use stress case with weekly caps, rate limits, and fair-use review. \\
-    Heavy-use guard & Eight 30-PDF evidence-scan runs. & 8 $\times$ 0.68 = 5.44~USD; 14.56~USD before non-model costs. & Shows why unlimited inference or account-pool resale is not offered. \\
+    Free BYOK & User-supplied model/key. & 0~USD PaperMemory model spend; 0~USD subscription revenue. \\
+    10~USD/month & Four 10-PDF evidence-packet runs. & 4 $\times$ 0.19 = 0.76~USD; 9.24~USD before non-model costs. \\
+    20~USD/month & Four 30-PDF evidence-scan runs. & 4 $\times$ 0.68 = 2.72~USD; 17.28~USD before non-model costs. \\
+    Heavy-use guard & Eight 30-PDF evidence-scan runs. & 8 $\times$ 0.68 = 5.44~USD; 14.56~USD before non-model costs. \\
     \bottomrule
   \end{tabularx}
 \end{table}

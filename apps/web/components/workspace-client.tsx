@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChatView } from "@/components/chat-view";
 import { HomeView } from "@/components/home-view";
 import { PaperManagerView } from "@/components/paper-manager-view";
+import { PricingView } from "@/components/pricing-view";
 import { ResearchSidebar } from "@/components/research-sidebar";
 import { SettingsView } from "@/components/settings-view";
 import { defaultApiBaseUrl, paperMemoryApi } from "@/lib/api";
@@ -1021,6 +1022,7 @@ export function WorkspaceClient() {
               onDeletePaper={deletePaper}
             />
           ) : null}
+          {activeView === "plans" ? <PricingView /> : null}
           {activeView === "settings" ? (
             <SettingsView
               modelSettings={settings}

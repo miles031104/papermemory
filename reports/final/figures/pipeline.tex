@@ -1,27 +1,6 @@
 \begin{figure}[t]
   \centering
-  \footnotesize
-  \setlength{\tabcolsep}{3pt}
-  \fbox{%
-  \begin{minipage}{0.96\linewidth}
-  \centering
-  \begin{tabularx}{\linewidth}{YYYY}
-  \textbf{Local PDFs} &
-  \textbf{Retrieval and packet} &
-  \textbf{Reliability layer} &
-  \textbf{Verified outputs} \\
-  \midrule
-  User-selected paper scope &
-  Page images, captions, selectable-text manifests, visual search, BM25, and page-canonical RRF into EvidencePackets &
-  Requirement planning, coverage check, claim verification, and reliability status &
-  Scoped chat, UI evidence panel, public trace, report-ready citations, and cost-model inputs \\
-  \end{tabularx}
-  \vspace{0.4em}
-  \begin{tabular}{c}
-    PDFs $\rightarrow$ page images/text manifest $\rightarrow$ visual/BM25/hybrid retrieval \\
-    $\rightarrow$ EvidencePacket $\rightarrow$ bounded orchestrator $\rightarrow$ reliability report $\rightarrow$ chat/report artifacts
-  \end{tabular}
-  \end{minipage}}
+  \includegraphics[width=\linewidth]{figures/papermemory_pipeline_figure1.png}
   \caption{PaperMemory pipeline with the reliability layer. The figure describes the report package over existing local artifacts; it does not add OCR, dense text retrieval, billing, or unrestricted agent actions.}
   \label{fig:pipeline}
 \end{figure}

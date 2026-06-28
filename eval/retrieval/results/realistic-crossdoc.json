@@ -1,0 +1,502 @@
+{
+  "boundary": "Controlled five-question cross-document retrieval fixture derived from the skill-security demo corpus; not a broad scholarly-corpus benchmark.",
+  "corpus": [
+    {
+      "group_id": "group-skill-security-crossdoc",
+      "page_number": 1,
+      "paper_id": "skill_inject",
+      "title": "Skill-Inject Benchmark Scale And Attack Success"
+    },
+    {
+      "group_id": "group-skill-security-crossdoc",
+      "page_number": 3,
+      "paper_id": "skill_inject",
+      "title": "Contextual Skill Instructions"
+    },
+    {
+      "group_id": "group-skill-security-crossdoc",
+      "page_number": 4,
+      "paper_id": "skill_inject",
+      "title": "Context-Aware Authorization"
+    },
+    {
+      "group_id": "group-skill-security-crossdoc",
+      "page_number": 1,
+      "paper_id": "wild_skills",
+      "title": "Malicious Agent Skills In The Wild"
+    },
+    {
+      "group_id": "group-skill-security-crossdoc",
+      "page_number": 2,
+      "paper_id": "wild_skills",
+      "title": "Attack Techniques And Kill Chain"
+    },
+    {
+      "group_id": "group-skill-security-crossdoc",
+      "page_number": 1,
+      "paper_id": "trojan_whisper",
+      "title": "Trojan Whisper Guidance Injection"
+    },
+    {
+      "group_id": "group-skill-security-crossdoc",
+      "page_number": 2,
+      "paper_id": "trojan_whisper",
+      "title": "Guidance Provenance And Runtime Policy"
+    }
+  ],
+  "generated_at": "2026-06-28T08:44:51.082503+00:00",
+  "methods": [
+    {
+      "method": "Keyword overlap baseline",
+      "metrics": {
+        "evidence_recall_at_5": 0.8,
+        "full_support_at_5": 0.2,
+        "full_support_count": 1,
+        "mean_required_pages": 4.2,
+        "question_count": 5
+      },
+      "questions": [
+        {
+          "evidence_pages": [
+            "wild_skills:1",
+            "skill_inject:1",
+            "trojan_whisper:1",
+            "skill_inject:4",
+            "trojan_whisper:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:3",
+            "wild_skills:1",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": false,
+          "id": "Q1",
+          "question": "Across the three papers, what is the shared agent-skill security problem, and how does the attack surface differ between skill-file injection, malicious skills in the wild, and OpenClaw guidance injection?",
+          "question_type": "cross_document_synthesis",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:1",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "skill_inject:4",
+            "trojan_whisper:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": false,
+          "id": "Q2",
+          "question": "Which concrete numbers from the three papers show that agent-skill attacks are not just hypothetical? Compare benchmark scale, wild ecosystem prevalence, and OpenClaw evaluation results.",
+          "question_type": "numeric_grounding",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:1",
+            "skill_inject:3",
+            "trojan_whisper:1",
+            "trojan_whisper:2",
+            "wild_skills:1"
+          ],
+          "expected_pages": [
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1",
+            "skill_inject:3"
+          ],
+          "full_support_at_5": false,
+          "id": "Q3",
+          "question": "Suppose a community skill has a benign public description, hidden behavior that can exfiltrate credentials, and guidance text that frames risky actions as routine best practices. Using the three papers, classify the risks and explain which paper supports each part of the classification.",
+          "question_type": "taxonomy_reasoning",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "wild_skills:1",
+            "skill_inject:4",
+            "skill_inject:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": false,
+          "id": "Q4",
+          "question": "Based on the three papers, would model scaling, warning prompts, static scanners, or simple input filtering be enough to secure agent skills? Answer yes or no, and justify the answer with evidence.",
+          "question_type": "defense_reasoning",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "wild_skills:1",
+            "skill_inject:1",
+            "skill_inject:4",
+            "trojan_whisper:1",
+            "trojan_whisper:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2"
+          ],
+          "full_support_at_5": true,
+          "id": "Q5",
+          "question": "If PaperMemory uses these papers as a demo corpus, what should the report claim the agent can demonstrate, and what should it not overclaim? Propose a minimal defense/evaluation story grounded in the papers.",
+          "question_type": "claim_scoping",
+          "recall_at_5": 1.0
+        }
+      ]
+    },
+    {
+      "method": "VisRAG page-image retrieval",
+      "metrics": {
+        "evidence_recall_at_5": 0.8099999999999999,
+        "full_support_at_5": 0.4,
+        "full_support_count": 2,
+        "mean_required_pages": 4.2,
+        "question_count": 5
+      },
+      "questions": [
+        {
+          "evidence_pages": [
+            "skill_inject:3",
+            "skill_inject:1",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "skill_inject:4"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:3",
+            "wild_skills:1",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": true,
+          "id": "Q1",
+          "question": "Across the three papers, what is the shared agent-skill security problem, and how does the attack surface differ between skill-file injection, malicious skills in the wild, and OpenClaw guidance injection?",
+          "question_type": "cross_document_synthesis",
+          "recall_at_5": 1.0
+        },
+        {
+          "evidence_pages": [
+            "wild_skills:2",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "skill_inject:1",
+            "trojan_whisper:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": true,
+          "id": "Q2",
+          "question": "Which concrete numbers from the three papers show that agent-skill attacks are not just hypothetical? Compare benchmark scale, wild ecosystem prevalence, and OpenClaw evaluation results.",
+          "question_type": "numeric_grounding",
+          "recall_at_5": 1.0
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:3",
+            "skill_inject:1",
+            "skill_inject:4",
+            "trojan_whisper:1",
+            "trojan_whisper:2"
+          ],
+          "expected_pages": [
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1",
+            "skill_inject:3"
+          ],
+          "full_support_at_5": false,
+          "id": "Q3",
+          "question": "Suppose a community skill has a benign public description, hidden behavior that can exfiltrate credentials, and guidance text that frames risky actions as routine best practices. Using the three papers, classify the risks and explain which paper supports each part of the classification.",
+          "question_type": "taxonomy_reasoning",
+          "recall_at_5": 0.5
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:4",
+            "trojan_whisper:2",
+            "skill_inject:1",
+            "skill_inject:3",
+            "trojan_whisper:1"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": false,
+          "id": "Q4",
+          "question": "Based on the three papers, would model scaling, warning prompts, static scanners, or simple input filtering be enough to secure agent skills? Answer yes or no, and justify the answer with evidence.",
+          "question_type": "defense_reasoning",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2",
+            "skill_inject:4",
+            "skill_inject:3"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2"
+          ],
+          "full_support_at_5": false,
+          "id": "Q5",
+          "question": "If PaperMemory uses these papers as a demo corpus, what should the report claim the agent can demonstrate, and what should it not overclaim? Propose a minimal defense/evaluation story grounded in the papers.",
+          "question_type": "claim_scoping",
+          "recall_at_5": 0.8
+        }
+      ]
+    },
+    {
+      "method": "BM25 text-manifest retrieval",
+      "metrics": {
+        "evidence_recall_at_5": 0.82,
+        "full_support_at_5": 0.4,
+        "full_support_count": 2,
+        "mean_required_pages": 4.2,
+        "question_count": 5
+      },
+      "questions": [
+        {
+          "evidence_pages": [
+            "trojan_whisper:1",
+            "wild_skills:1",
+            "skill_inject:1",
+            "wild_skills:2",
+            "skill_inject:3"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:3",
+            "wild_skills:1",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": true,
+          "id": "Q1",
+          "question": "Across the three papers, what is the shared agent-skill security problem, and how does the attack surface differ between skill-file injection, malicious skills in the wild, and OpenClaw guidance injection?",
+          "question_type": "cross_document_synthesis",
+          "recall_at_5": 1.0
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:1",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "skill_inject:3",
+            "trojan_whisper:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": false,
+          "id": "Q2",
+          "question": "Which concrete numbers from the three papers show that agent-skill attacks are not just hypothetical? Compare benchmark scale, wild ecosystem prevalence, and OpenClaw evaluation results.",
+          "question_type": "numeric_grounding",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:3",
+            "trojan_whisper:2",
+            "trojan_whisper:1",
+            "skill_inject:1",
+            "wild_skills:2"
+          ],
+          "expected_pages": [
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1",
+            "skill_inject:3"
+          ],
+          "full_support_at_5": false,
+          "id": "Q3",
+          "question": "Suppose a community skill has a benign public description, hidden behavior that can exfiltrate credentials, and guidance text that frames risky actions as routine best practices. Using the three papers, classify the risks and explain which paper supports each part of the classification.",
+          "question_type": "taxonomy_reasoning",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "wild_skills:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": true,
+          "id": "Q4",
+          "question": "Based on the three papers, would model scaling, warning prompts, static scanners, or simple input filtering be enough to secure agent skills? Answer yes or no, and justify the answer with evidence.",
+          "question_type": "defense_reasoning",
+          "recall_at_5": 1.0
+        },
+        {
+          "evidence_pages": [
+            "wild_skills:1",
+            "trojan_whisper:2",
+            "skill_inject:4"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2"
+          ],
+          "full_support_at_5": false,
+          "id": "Q5",
+          "question": "If PaperMemory uses these papers as a demo corpus, what should the report claim the agent can demonstrate, and what should it not overclaim? Propose a minimal defense/evaluation story grounded in the papers.",
+          "question_type": "claim_scoping",
+          "recall_at_5": 0.6
+        }
+      ]
+    },
+    {
+      "method": "Hybrid page fusion",
+      "metrics": {
+        "evidence_recall_at_5": 0.85,
+        "full_support_at_5": 0.6,
+        "full_support_count": 3,
+        "mean_required_pages": 4.2,
+        "question_count": 5
+      },
+      "questions": [
+        {
+          "evidence_pages": [
+            "trojan_whisper:1",
+            "skill_inject:1",
+            "wild_skills:1",
+            "skill_inject:3",
+            "wild_skills:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:3",
+            "wild_skills:1",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": true,
+          "id": "Q1",
+          "question": "Across the three papers, what is the shared agent-skill security problem, and how does the attack surface differ between skill-file injection, malicious skills in the wild, and OpenClaw guidance injection?",
+          "question_type": "cross_document_synthesis",
+          "recall_at_5": 1.0
+        },
+        {
+          "evidence_pages": [
+            "wild_skills:1",
+            "skill_inject:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2",
+            "wild_skills:2"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": true,
+          "id": "Q2",
+          "question": "Which concrete numbers from the three papers show that agent-skill attacks are not just hypothetical? Compare benchmark scale, wild ecosystem prevalence, and OpenClaw evaluation results.",
+          "question_type": "numeric_grounding",
+          "recall_at_5": 1.0
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:3",
+            "skill_inject:1",
+            "trojan_whisper:2",
+            "trojan_whisper:1",
+            "skill_inject:4"
+          ],
+          "expected_pages": [
+            "wild_skills:1",
+            "wild_skills:2",
+            "trojan_whisper:1",
+            "skill_inject:3"
+          ],
+          "full_support_at_5": false,
+          "id": "Q3",
+          "question": "Suppose a community skill has a benign public description, hidden behavior that can exfiltrate credentials, and guidance text that frames risky actions as routine best practices. Using the three papers, classify the risks and explain which paper supports each part of the classification.",
+          "question_type": "taxonomy_reasoning",
+          "recall_at_5": 0.5
+        },
+        {
+          "evidence_pages": [
+            "skill_inject:4",
+            "skill_inject:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2",
+            "wild_skills:1"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:2",
+            "trojan_whisper:1"
+          ],
+          "full_support_at_5": false,
+          "id": "Q4",
+          "question": "Based on the three papers, would model scaling, warning prompts, static scanners, or simple input filtering be enough to secure agent skills? Answer yes or no, and justify the answer with evidence.",
+          "question_type": "defense_reasoning",
+          "recall_at_5": 0.75
+        },
+        {
+          "evidence_pages": [
+            "trojan_whisper:2",
+            "skill_inject:4",
+            "skill_inject:1",
+            "wild_skills:1",
+            "trojan_whisper:1"
+          ],
+          "expected_pages": [
+            "skill_inject:1",
+            "skill_inject:4",
+            "wild_skills:1",
+            "trojan_whisper:1",
+            "trojan_whisper:2"
+          ],
+          "full_support_at_5": true,
+          "id": "Q5",
+          "question": "If PaperMemory uses these papers as a demo corpus, what should the report claim the agent can demonstrate, and what should it not overclaim? Propose a minimal defense/evaluation story grounded in the papers.",
+          "question_type": "claim_scoping",
+          "recall_at_5": 1.0
+        }
+      ]
+    }
+  ],
+  "mode": "realistic-crossdoc",
+  "output_prefix": "realistic-crossdoc"
+}

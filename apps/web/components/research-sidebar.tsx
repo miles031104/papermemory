@@ -36,6 +36,7 @@ const workspaceViews: Array<{ id: WorkspaceView; label: string }> = [
   { id: "home", label: "Home" },
   { id: "chat", label: "Chat" },
   { id: "papers", label: "Paper Manager" },
+  { id: "plans", label: "Plans" },
   { id: "settings", label: "Settings" },
 ];
 

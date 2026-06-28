@@ -4,7 +4,7 @@ This map covers the major Abstract and Introduction claims after the course-repo
 
 ## PDF-Visible Summary Table
 
-The report now includes `reports/final/tables/claim_evidence_boundary.tex`, a compact in-PDF table with five major claims: market signal, compound AI architecture, synthetic retrieval results, bounded subscription cost logic, and trust behavior. The table intentionally pairs each claim with a boundary so graders can see what the report does and does not claim without opening this external map.
+The report now includes `reports/final/tables/claim_evidence_boundary.tex`, a compact in-PDF table with five major claims: market signal, compound AI architecture, synthetic retrieval results, bounded subscription cost logic, and trust behavior. The table now keeps only the claim and evidence columns so the main PDF stays readable.
 
 | Claim | Status | Evidence |
 | --- | --- | --- |

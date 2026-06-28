@@ -10,7 +10,7 @@ The current final report package under `reports/final/` includes the fast report
 - Technical Depth: executable same-fixture keyword baseline appears before BM25, visual, and hybrid rows.
 - Market Proof: aggregate-only interview questionnaire protocol uses only `n=10`, `4.2/5`, and `70%`.
 - Profit Logic: tier economics now include illustrative provider-compliant API relay sensitivity using 10-PDF and 30-PDF Node 9 API/compute costs.
-- Claim Boundaries: an in-PDF claim/evidence/boundary table appears near the start of the paper.
+- Claim Evidence: an in-PDF claim/evidence table appears near the start of the paper.
 - Road Show: a separate three-minute demo video accompanies the submission; the PDF no longer spends appendix space on road-show scene mapping.
 
 New or updated report-facing repair assets include:
@@ -34,17 +34,17 @@ Final compile result:
 - Compiler: bundled Tectonic 0.16.9.
 - Exit status: 0.
 - PDF: `reports/final/main.pdf`.
-- Total PDF pages: 13.
-- Claim/evidence/boundary table: page 2.
-- References begin: page 9.
+- Total PDF pages: 12.
+- Claim/evidence table: page 2.
+- References begin: page 8.
 - Appendix content begins: page 10.
 - Reproducibility Commands: page 10.
 - Interview Market Validation: page 10.
 - Full Metric Tables: page 11.
-- Robustness Failure Gallery: page 12.
+- Robustness Failure Gallery: page 11.
 - Road-show appendix heading: not found in the PDF.
-- Checklist claims item: page 13.
-- Main-body estimate: 8 pages before references, within the nine-page main-body limit.
+- Checklist claims item: page 12.
+- Main-body estimate: 7 pages before references, within the nine-page main-body limit.
 - Warnings: underfull boxes in narrow tables and bibliography/path lines; no overfull warnings appeared in the captured final compile output.
 
 ## Baseline Command
@@ -78,10 +78,10 @@ Result: all 16 `\citep{...}` keys resolve to inline bibliography items; the bibl
 PDF page check:
 
 ```powershell
-python -c "from pypdf import PdfReader; r=PdfReader('reports/final/main.pdf'); print('pages=' + str(len(r.pages))); keys=['Major claims, evidence, and boundaries','References','Reproducibility Commands','Interview Market Validation','Full Metric Tables','Robustness Failure Gallery','Claims. [Yes]']; [print(k + '=' + str(next((i+1 for i,p in enumerate(r.pages) if k in (p.extract_text() or '')), 'not found'))) for k in keys]"
+python -c "from pypdf import PdfReader; r=PdfReader('reports/final/main.pdf'); print('pages=' + str(len(r.pages))); keys=['Major report claims and supporting evidence','References','Reproducibility Commands','Interview Market Validation','Full Metric Tables','Robustness Failure Gallery','Claims. [Yes]']; [print(k + '=' + str(next((i+1 for i,p in enumerate(r.pages) if k in (p.extract_text() or '')), 'not found'))) for k in keys]"
 ```
 
-Result: `pages=13`, `Major claims, evidence, and boundaries=2`, `References=9`, `Reproducibility Commands=10`, `Interview Market Validation=10`, `Full Metric Tables=11`, `Robustness Failure Gallery=12`, `Claims. [Yes]=13`.
+Result: `pages=12`, `Major report claims and supporting evidence=2`, `References=8`, `Reproducibility Commands=10`, `Interview Market Validation=10`, `Full Metric Tables=11`, `Robustness Failure Gallery=11`, `Claims. [Yes]=12`.
 
 Incomplete-marker scan over report-facing files:
 

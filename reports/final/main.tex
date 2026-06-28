@@ -27,14 +27,14 @@
 \maketitle
 
 \begin{abstract}
-PDF-based literature work can be slow because researchers need page-level evidence, citation support, and visible uncertainty before they can trust a draft answer. PaperMemory is a local-first compound AI assistant for postgraduate researchers who work with bounded PDF collections. It builds page-level EvidencePackets, combines visual and selectable-text retrieval, runs a bounded evidence-seeking loop, checks reliability, and keeps human verification in the workflow. Early market evidence from informal interviews with 10 PhD, master's, or postgraduate researchers gives a mean conditional purchase likelihood of 4.2/5 if the claimed functions are delivered, and 70\% prefer PaperMemory-provided API/model access through a monthly subscription rather than BYOK-only setup. We therefore evaluate a freemium model with a free BYOK tier and proposed 10 and 20~USD/month tiers that include weekly capped, provider-compliant API relay for managed LLM access. On the local synthetic fixture suite, BM25 improves Recall@1 from 77.8\% to 88.9\% and retrieval-level refusal correctness from 33.3\% to 100.0\%; robustness fixtures cover missing evidence, citation drift, prompt-injection-like PDF text, conflicts, and low-text pages. A cost stress test estimates positive base-case net savings for first-pass evidence gathering under stated assumptions, while leaving conversion, retention, hosting cost, support cost, licensing, and real-corpus retrieval quality as open commercialization risks.
+PDF-based literature work can be slow because researchers need page-level evidence, citation support, and visible uncertainty before they can trust a draft answer. PaperMemory is a local-first compound AI assistant for postgraduate researchers who work with bounded PDF collections. It builds page-level EvidencePackets, combines visual and selectable-text retrieval, runs a bounded evidence-seeking loop, checks reliability, and keeps human verification in the workflow. Early market evidence from informal interviews with 10 PhD, master's, or postgraduate researchers gives a mean conditional purchase likelihood of 4.2/5 if the claimed functions are delivered, and 70\% prefer PaperMemory-provided API/model access through a monthly subscription rather than BYOK-only setup. We therefore evaluate a freemium model with a free BYOK tier and proposed 10 and 20~USD/month tiers that include weekly capped, provider-compliant API relay for managed LLM access. On a controlled five-question cross-document retrieval fixture, all methods are close in mean evidence recall@5, while hybrid page fusion fully supports 3/5 questions versus 1/5 for keyword overlap and 2/5 for each single-retrieval baseline; robustness fixtures cover missing evidence, citation drift, prompt-injection-like PDF text, conflicts, and low-text pages. A cost stress test estimates positive base-case net savings for first-pass evidence gathering under stated assumptions, while leaving conversion, retention, hosting cost, support cost, licensing, and real-corpus retrieval quality as open commercialization risks.
 \end{abstract}
 
 \section{Introduction}
 
 Postgraduate researchers often spend early writing time turning PDFs into claims they can safely cite. The hard part goes beyond finding a relevant page. A useful research assistant must show why a page was used, which citation supports the sentence, and where the answer should stop because the evidence is thin. When that boundary is hidden, users still have to redo the evidence work by hand.
 
-PaperMemory targets this paid workflow directly. In informal interviews with 10 university PhD, master's, or postgraduate researchers, the mean conditional purchase likelihood was 4.2/5 if PaperMemory delivered the promised functions: local PDF ingestion, evidence-backed answers, visible citations, bounded uncertainty, and a simpler model-access path. Seven of the 10 interviewees preferred PaperMemory-provided API/model access through a monthly subscription over a BYOK-only setup \citep{paperMemoryInterviewValidation}. Appendix~\ref{app:interview-validation} records the short questionnaire protocol and aggregate response framing. This is early willingness-to-pay evidence, not product-market fit, but it is enough to justify testing a paid model in this course-stage report.
+PaperMemory targets this paid workflow directly. In informal interviews with 10 university PhD, master's, or postgraduate researchers, the mean conditional purchase likelihood was 4.2/5 if PaperMemory delivered the promised functions: local PDF ingestion, evidence-backed answers, visible citations, bounded uncertainty, and a simpler model-access path. Seven of the 10 interviewees preferred PaperMemory-provided API/model access through a monthly subscription over a BYOK-only setup. Appendix~\ref{app:interview-validation} records the short questionnaire protocol and aggregate response framing. This is early willingness-to-pay evidence, not product-market fit, but it is enough to justify testing a paid model in this course-stage report.
 
 Existing research assistants such as Elicit and Consensus are priced around evidence-oriented workflows, although they are market comparators rather than executable baselines for this report \citep{elicitPricing,consensusPricing}. PaperMemory's narrower position is local-first PDF work: the user brings a scoped collection, the system builds page-level EvidencePackets, and the interface exposes citations, limits, and reliability status before the user turns the draft into research writing.
 
@@ -43,31 +43,37 @@ Existing research assistants such as Elicit and Consensus are priced around evid
 
 The contribution is both technical and commercial. Technically, PaperMemory combines page rendering, selectable-text manifests, BM25 retrieval, page-canonical rank fusion, EvidencePacket validation, bounded evidence seeking, reliability checks, and an evidence-visible UI. Commercially, it connects that workflow to a freemium BYOK product and proposed paid tiers that remove API setup friction through compliant managed model access. The evaluation remains bounded: synthetic/local metrics and controlled live tests show implementation behavior, not broad scholarly-corpus superiority.
 
-\section{Product Boundary and Revenue Logic}
+\section{Product and Revenue Logic}
 
 The first target users are postgraduate researchers who work with dense PDF collections and need a faster first pass over evidence. A second group is small research, consulting, or R\&D teams that need traceable evidence packets before writing memos or reports. PaperMemory is not a systematic-review replacement or final expert adjudicator. It supports evidence gathering, citation packaging, and uncertainty surfacing before human review.
 
-The proposed packaging follows the interview signal. The free tier is BYOK with limited groups, which lowers adoption friction and keeps model cost outside the product. The 10~USD/month tier adds provider-compliant API relay for managed LLM access with a lower weekly managed-model boundary for routine postgraduate work. The 20~USD/month tier offers a larger workspace and a higher weekly managed-model boundary for heavier literature projects. The paid design assumes commercial API access or equivalent provider permission; it does not rely on consumer-account pooling, coding-plan resale, or unlimited inference. The exact quotas should be set only after usage telemetry exists; this report intentionally does not invent them.
+The proposed packaging follows the interview signal. The free tier is BYOK with limited groups, which lowers adoption friction and keeps model cost outside the product. The 10~USD/month tier adds provider-compliant API relay for managed LLM access with a lower weekly managed-model allowance for routine postgraduate work. The 20~USD/month tier offers a larger workspace and a higher weekly managed-model allowance for heavier literature projects. The paid design assumes commercial API access or equivalent provider permission; it does not rely on consumer-account pooling, coding-plan resale, or unlimited inference. The exact quotas should be set only after usage telemetry exists; this report intentionally does not invent them.
+
+A later 50~USD/month organization tier could extend the same evidence workflow to small labs, research groups, or consulting teams by supporting shared literature libraries and shared notes across users. This tier is framed as collaborative workspace value rather than higher individual model usage; its economics would require separate telemetry on seats, storage, collaboration patterns, and support cost.
 
 \input{tables/revenue_model}
 
 The value logic is that users pay for convenience and evidence discipline together. The subscription removes API-key setup for the 70\% of interviewed users who preferred managed access, while the product keeps the local-first evidence workflow visible: pages, citations, limits, and reliability status remain part of the answer. That distinction matters because a plain hosted chatbot can be cheaper to build, but it does not give the user the same packet-level audit trail.
 
-The cost model supports a plausible subscription experiment under bounded usage. The Node 9 stress test estimates API/compute costs of \$0.19 for a 10-PDF evidence packet, \$0.68 for a 30-PDF project evidence scan, and \$1.62 for systematic-review pre-screening, with positive base-case net savings in all three scenarios after operation, verification, API/compute, and scenario license assumptions \citep{paperMemoryCostBenefit}. These numbers do not prove margins. They exclude production hosting, support, abuse controls, full licensing decisions, sales cycle cost, usage variance, actual conversion, and retention. The 10 and 20~USD/month tiers are therefore commercially plausible only under fair-use limits, and they remain proposed packaging rather than validated revenue.
+The cost model supports a plausible subscription experiment under bounded usage. The cost stress test estimates API/compute costs of \$0.19 for a 10-PDF evidence packet, \$0.68 for a 30-PDF project evidence scan, and \$1.62 for systematic-review pre-screening, with positive base-case net savings in all three scenarios after operation, verification, API/compute, and scenario license assumptions. Appendix~\ref{app:robustness-cost} records the assumptions behind this stress test. These numbers do not prove margins. They exclude production hosting, support, abuse controls, full licensing decisions, sales cycle cost, usage variance, actual conversion, and retention. The 10 and 20~USD/month tiers are therefore commercially plausible only under fair-use limits, and they remain proposed packaging rather than validated revenue.
 
 \section{Compound AI System Architecture}
 
-PaperMemory is a compound AI system over a local PDF collection. The ingestion path renders PDFs into page artifacts and extracts selectable text where the PDF permits it. Each page can therefore carry an image, a caption or text snippet, a selectable-text manifest entry, and a quality label such as low-text or OCR-needed. This split matters because visual retrieval can still use page layout, while BM25 can use exact terms when text exists.
+PaperMemory is a compound AI system over a local PDF collection. The implemented stack combines a Qdrant-compatible page-vector store, VisRAG-style page-image retrieval, a BM25 text-manifest index, provider LLM generation through BYOK or managed API relay, server-side EvidencePacket validation, a reliability verifier, and an evidence-visible UI. The ingestion path renders PDFs into page artifacts and extracts selectable text where the PDF permits it. Each page can therefore carry an image, a caption or text snippet, a selectable-text manifest entry, and a quality label such as low-text or OCR-needed. This split matters because visual retrieval can still use page layout, while BM25 can use exact terms when text exists.
 
 \input{figures/pipeline}
 
 Retrieval has three implemented paths. The visual path retrieves page candidates from the page-image evidence surface. The BM25 path indexes the text manifests with $k_1=1.5$ and $b=0.75$. The hybrid path applies page-canonical reciprocal rank fusion with $k=60$, then collapses visual and text hits onto the same $(paper, page)$ unit. That canonical page key keeps the downstream citation grain stable even when the two retrievers disagree about score scale or rank source.
 
-The EvidencePacket schema is the system boundary between retrieval and generation. A packet records the query, paper scope, accepted EvidenceUnits, accepted page citations, rank traces, source modality, validation state, and limits. The public packet excludes local filesystem paths and keeps stable evidence ids so that chat, trace logs, and report material can point back to the same page units \citep{paperMemoryEvidenceContract,paperMemoryChatPacket}. Generation is allowed to see packet context, but final citations are filtered back to accepted packet pages.
+BM25 is included as a trust-oriented text layer rather than as a novelty claim. It is deterministic, inexpensive, and easy to reproduce, so it gives PaperMemory an auditable evidence surface for exact scientific terms, method names, dataset names, abbreviations, and citation-bearing snippets when selectable text exists \citep{robertson2009bm25}. This matters for commercial trust because a user can inspect the matched page text and understand why the page entered the EvidencePacket, instead of receiving only an opaque embedding score. BM25 therefore supports reproducibility and citation checking even though it is not presented as a new retrieval algorithm.
 
-The reliability layer sits after packet construction and before the answer is treated as ready for the user. It plans evidence requirements from the question, checks whether the selected papers and claim types are covered, verifies answer claims against accepted evidence, and returns a visible \texttt{strong}, \texttt{partial}, or \texttt{insufficient} status. The status is a review signal, not a correctness certificate. It tells the user whether the packet supports the answer, where coverage is thin, and when the system should withhold or narrow a claim \citep{paperMemoryEvidenceReliability}.
+The visual retrieval layer is motivated by recent state-of-the-art document retrieval work showing that page images can be directly useful for visually rich documents \citep{yu2024visrag,faysse2024colpali}. This design is especially appropriate for academic PDFs because important evidence often appears in figures, tables, equations, page layout, and captions that are degraded or lost when the document is reduced to plain text. VisRAG-style page retrieval lets PaperMemory search the rendered page as the user sees it, while the BM25 layer anchors exact lexical evidence when text extraction is available. The hybrid design is therefore not redundant: it combines visual document understanding with reproducible text matching before generation is allowed to cite a page.
 
-This architecture also connects to the product cost model. Reliability checks add planner and verification calls when enabled, while disabled reliability mode avoids that extra work. The cost stress test therefore belongs in the architecture story as a deployment control: stronger grounding can be purchased with more model work when the task warrants it, and lighter runs remain available for lower-risk exploration \citep{paperMemoryCostBenefit}.
+The EvidencePacket schema is the system boundary between retrieval and generation. A packet records the query, paper scope, accepted EvidenceUnits, accepted page citations, rank traces, source modality, validation state, and limits. The public packet excludes local filesystem paths and keeps stable evidence ids so that chat, trace logs, and report material can point back to the same page units. Generation is allowed to see packet context, but final citations are filtered back to accepted packet pages.
+
+The reliability layer sits after packet construction and before the answer is treated as ready for the user. It plans evidence requirements from the question, checks whether the selected papers and claim types are covered, verifies answer claims against accepted evidence, and returns a visible \texttt{strong}, \texttt{partial}, or \texttt{insufficient} status. The status is a review signal, not a correctness certificate. It tells the user whether the packet supports the answer, where coverage is thin, and when the system should withhold or narrow a claim.
+
+This architecture also connects to the product cost model. Reliability checks add planner and verification calls when enabled, while disabled reliability mode avoids that extra work. The cost stress test therefore belongs in the architecture story as a deployment control: stronger grounding can be purchased with more model work when the task warrants it, and lighter runs remain available for lower-risk exploration.
 
 \section{Agentic Autonomy and Implementation Logic}
 
@@ -79,7 +85,7 @@ The implemented loop starts with query rewrite. The system prepares a conversati
 
 Stop reasons are explicit. A \texttt{sufficient} trace can answer after the first pass when the packet covers the question. A \texttt{no\_new\_evidence} trace stops after a retry produces no new accepted units. The answer step then uses the final packet, strips citations that do not match accepted pages, and attaches the reliability status from the requirement, coverage, and claim-verification checks. A \texttt{partial} answer can still be useful when it says which part is supported. An \texttt{insufficient} answer asks the user to revise scope or add evidence instead of filling the gap with unsupported prose.
 
-The live controlled run exercises the same boundary. The successful image-context chat returned HTTP 200, six evidence rows, six citations, three included evidence images, and a final \texttt{sufficient} stop reason. The missing-evidence chat used a bounded second retrieval and ended with \texttt{no\_new\_evidence}, while the answer stated that the evidence packet did not support the requested mitochondrial ribosome profiling claim. The prompt-injection-style page stayed evidence rather than instruction: the answer treated the page text as untrusted and did not reveal keys, execute tools, or alter citations \citep{paperMemoryAgentTraces,paperMemoryLiveLocalTest}.
+The live controlled run exercises the same boundary. The successful image-context chat returned HTTP 200, six evidence rows, six citations, three included evidence images, and a final \texttt{sufficient} stop reason. The missing-evidence chat used a bounded second retrieval and ended with \texttt{no\_new\_evidence}, while the answer stated that the evidence packet did not support the requested mitochondrial ribosome profiling claim. The prompt-injection-style page stayed evidence rather than instruction: the answer treated the page text as untrusted and did not reveal keys, execute tools, or alter citations. Appendix~\ref{app:full-metrics} lists the essential trace artifacts behind this run.
 
 \section{Baselines, Evaluation, and Technical Results}
 
@@ -87,9 +93,9 @@ The evaluation is a proof-of-capability package built from synthetic fixtures, d
 
 \input{tables/retrieval_summary}
 
-The baseline comparison has four measured synthetic retrieval rows. The first row is a deliberately weak keyword-overlap baseline on the same 12 golden questions. It scores title and caption tokens, giving Recall@1 of 88.9\%, Recall@3 and Recall@5 of 100.0\%, citation-page correctness of 100.0\%, and retrieval-level refusal correctness of 33.3\%; it is executable but has no EvidencePacket, model reasoning, BM25 weighting, visual retrieval, or sufficiency gate \citep{paperMemoryKeywordBaseline}. The visual API baseline has Recall@1 of 77.8\%, Recall@3 and Recall@5 of 100.0\%, citation-page correctness of 100.0\%, and retrieval-level refusal correctness of 33.3\%. The BM25 text-manifest row improves refusal correctness to 100.0\% on the same synthetic setup, while preserving 100.0\% Recall@3, Recall@5, and citation-page correctness \citep{paperMemoryNode1,paperMemoryBm25Metrics}. GPT-only chat, Elicit, and Consensus remain qualitative market or workflow comparators rather than measured same-fixture retrieval baselines.
+Table~\ref{tab:retrieval-summary} reports a realistic five-question cross-document retrieval fixture derived from the skill-security demo corpus. Unlike the earlier page-lookup sanity check, these questions ask for cross-paper comparison, numeric grounding, taxonomy use, defense reasoning, and report-facing claim scoping. Mean recall values are close across methods, so the more interpretable signal is whether a method retrieves every required support page for a question. Keyword overlap fully supports 1/5 questions, single-modality VisRAG page-image retrieval and BM25 text-manifest retrieval support 2/5 each, and PaperMemory's hybrid page fusion supports 3/5 by combining page-level visual cues with exact text evidence before citations are passed to the answer layer. Appendix~\ref{app:full-metrics} records the per-question fixture output.
 
-The hybrid page-fusion row should be read as provenance evidence. Its aggregate synthetic retrieval percentages match the visual baseline, but 27 returned units carry both visual and BM25 traces. That result confirms that page-canonical RRF can merge retriever evidence into a single packet unit without inventing a new citation grain \citep{paperMemoryHybridMetrics}. It does not show that hybrid retrieval is better on real paper collections.
+The realistic retrieval fixture remains controlled: it uses page aliases and anchor text derived from the five-question demo corpus rather than a broad scholarly PDF benchmark. Its purpose is to test the retrieval pattern used by PaperMemory's product workflow: a user asks a natural question, the system retrieves relevant pages from selected papers, and the answer layer receives page-grounded evidence. The separate live five-question run remains an answer-quality smoke test with partial manual quality; Table~\ref{tab:retrieval-summary} isolates retrieval coverage so the method comparison is clean.
 
 The bounded evidence agent is evaluated through traces and regression behavior rather than Recall@k. The trace examples show accepted evidence ids, pass indexes, evidence deltas, stop reasons, and final packet limits. The controlled live run adds a more realistic smoke test: search and chat reached the local API, evidence cards appeared in the UI, citation chips were rendered, missing evidence stopped safely, and prompt-injection-style PDF text remained inside the evidence boundary. The main technical result is therefore narrower than a benchmark claim: the current implementation connects retrieval, EvidencePackets, bounded retries, reliability status, and UI evidence surfacing in a reproducible local workflow.
 
@@ -102,14 +108,14 @@ Trust in PaperMemory depends on visible failure behavior. A research assistant c
 
 The robustness package covers common ways a PDF-grounded assistant can fail. With an empty scope, PaperMemory enters conversation mode and strips paper-style citations because no selected paper evidence exists. With missing scoped evidence, the packet is partial, carries no accepted citations, and removes generated page labels that are not supported by the accepted packet. With repeated retrieval, a second pass that finds the same page stops with \texttt{no\_new\_evidence} rather than treating a duplicate as new support.
 
-Prompt-injection-like PDF text is handled as untrusted evidence. The page text may appear inside the accepted evidence section, but planner prompts label it as evidence rather than instruction, extra action fields are rejected, and unsafe planner hints are removed from public traces. Citation drift is handled at serialization time: citations outside accepted packet pages, including unknown-paper labels, are stripped before the answer reaches the user. Conflicting numeric evidence adds a verification-needed limit instead of forcing a single value. Low-text, empty, or OCR-needed pages add a visual-first limit so the assistant does not invent text that was not extracted \citep{paperMemoryRobustness,paperMemoryFailureGallery}.
+Prompt-injection-like PDF text is handled as untrusted evidence. The page text may appear inside the accepted evidence section, but planner prompts label it as evidence rather than instruction, extra action fields are rejected, and unsafe planner hints are removed from public traces. Citation drift is handled at serialization time: citations outside accepted packet pages, including unknown-paper labels, are stripped before the answer reaches the user. Conflicting numeric evidence adds a verification-needed limit instead of forcing a single value. Low-text, empty, or OCR-needed pages add a visual-first limit so the assistant does not invent text that was not extracted.
 
-The reliability layer turns these cases into user-facing states. A \texttt{strong} answer has the planned evidence requirements covered by accepted pages. A \texttt{partial} answer can be useful, but the limits explain which evidence is missing or contested. An \texttt{insufficient} answer tells the user to change scope or add sources before treating the answer as paper-grounded. This is a practical review workflow for controlled local fixtures and live smoke tests. It is not a broad security result, an OCR result, or proof that every unsupported claim will be detected \citep{paperMemoryEvidenceReliability}.
+The reliability layer turns these cases into user-facing states. A \texttt{strong} answer has the planned evidence requirements covered by accepted pages. A \texttt{partial} answer can be useful, but the limits explain which evidence is missing or contested. An \texttt{insufficient} answer tells the user to change scope or add sources before treating the answer as paper-grounded. This is a practical review workflow for controlled local fixtures and live smoke tests. It is not a broad security result, an OCR result, or proof that every unsupported claim will be detected. Appendix~\ref{app:robustness-cost} summarizes the robustness fixtures and cost assumptions.
 
 \section{Commercial Stress Test}
 \label{sec:commercial-stress}
 
-The commercial question is whether evidence-packet work can save enough expert time to justify a paid workflow while keeping human verification in place. Node 9 models that question with:
+The commercial question is whether evidence-packet work can save enough expert time to justify a paid workflow while keeping human verification in place. The stress test models that question with:
 \[
 \text{net savings} = (h_m - h_p - h_v) r - c_a - c_l,
 \]
@@ -117,12 +123,12 @@ where $h_m$ is manual work, $h_p$ is PaperMemory operation time, $h_v$ is human 
 
 \input{tables/cost_summary}
 
-The per-scenario API or compute cost is small in the current stress test: 0.19~USD for a 10-PDF evidence packet, 0.68~USD for a 30-PDF project evidence scan, and 1.62~USD for systematic-review pre-screening. Base-case net savings are 183.70~USD, 561.61~USD, and 3423.86~USD after operation, verification, API/compute, and license assumptions. The low case for systematic-review pre-screening is -232.20~USD, which matters. It shows that the value case can fail when verification time and deployment assumptions dominate.
+The per-scenario API or compute cost is small in the current stress test: 0.19~USD for a 10-PDF evidence packet, 0.68~USD for a 30-PDF project evidence scan, and 1.62~USD for systematic-review pre-screening. Base-case net savings are 183.70~USD, 561.61~USD, and 3423.86~USD after operation, verification, API/compute, and license assumptions. The low-savings case for systematic-review pre-screening is -232.20~USD, which matters. It shows that the value case can fail when verification time and deployment assumptions dominate.
 
 \input{tables/pricing_tiers}
 \input{tables/tier_economics}
 
-The interview signal supports a subscription experiment rather than a BYOK-only product. Seven of 10 interviewed postgraduate researchers preferred PaperMemory-provided API/model access through a monthly subscription. Table~\ref{tab:tier-economics} uses the 10-PDF and 30-PDF Node 9 API/compute estimates as illustrative managed-access stress cases, not production quotas or validated margins. The proposed packaging keeps the free tier as BYOK, then tests 10~USD/month and 20~USD/month managed-access tiers through compliant API relay. Those tiers are plausible only with weekly capped managed LLM usage, BYOK fallback, rate limits, or a fair-use policy. Exact quotas should come from usage telemetry, not this report.
+The interview signal supports a subscription experiment rather than a BYOK-only product. Seven of 10 interviewed postgraduate researchers preferred PaperMemory-provided API/model access through a monthly subscription. Table~\ref{tab:tier-economics} uses the 10-PDF and 30-PDF cost-stress-test estimates as illustrative managed-access cases, not production quotas or validated margins. The proposed packaging keeps the free tier as BYOK, then tests 10~USD/month and 20~USD/month managed-access tiers through compliant API relay. Those tiers are plausible only with weekly capped managed LLM usage, BYOK fallback, rate limits, or a fair-use policy. Exact quotas should come from usage telemetry, not this report.
 
 The paid tiers bundle compliant managed LLM access support rather than unlimited inference. The weekly cap is the key margin control: once a user exceeds the managed allowance, the product can pause, ask the user to wait, or fall back to BYOK. This keeps the commercial claim tied to a bounded service design rather than an unlimited API subsidy or subscription-account arbitrage. The stress test does not prove paid conversion, retention, production margins, hosting cost, support cost, abuse cost, or legal cost. It also does not make PaperMemory a systematic-review replacement. The stronger commercial claim is narrower: under the current assumptions, API cost is not the main blocker for first-pass evidence gathering. The product risk sits in user adoption, verification effort, usage variance, and deployment licensing.
 
@@ -135,7 +141,7 @@ The market evidence is also early. The interview sample has 10 postgraduate rese
 
 Ethically, PaperMemory should remain a first-pass assistant. It can reduce citation packaging work, but users still need to inspect cited pages before academic, medical, legal, or policy use. The local-first and BYOK options reduce some centralization risk, yet external model APIs may still receive prompts and evidence snippets if the user configures them. Public traces therefore avoid local paths and unsafe planner hints, and generated citations are constrained to accepted packet pages.
 
-Reproducibility materials live under the active repository root \artifact{D:/codex/papermemory}. The older \artifact{D:/codex/llm\_paper\_assis/papermemory} path is now a junction to the same working tree. Appendix~\ref{app:reproducibility} records the branch, baseline environment, LaTeX command, and verification snapshots. Appendix~\ref{app:interview-validation} records the interview sample, questionnaire protocol, aggregate results, and limits. Appendix~\ref{app:robustness-cost} records the robustness gallery and cost assumptions. A separate three-minute demo video accompanies the submission; the report focuses on technical evidence, market proof, cost stress testing, and reproducibility.
+Reproducibility materials live under the PaperMemory repository root. Appendix~\ref{app:reproducibility} records the branch, baseline environment, LaTeX command, and verification snapshots. Appendix~\ref{app:interview-validation} records the interview sample, questionnaire protocol, aggregate results, and limits. Appendix~\ref{app:robustness-cost} records the robustness gallery and cost assumptions. A separate three-minute road-show video accompanies the submission and shows the investor-facing flow: PDF upload, evidence retrieval, a reliability warning for unsupported claims, and the subscription value proposition; the report focuses on technical evidence, market proof, cost stress testing, and reproducibility.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -149,27 +155,27 @@ The next steps are practical rather than rhetorical. PaperMemory needs real loca
 \bibitem[Artifex Software(2026)]{artifexLicensing}
 Artifex Software.
 \newblock Licensing.
-\newblock \url{https://artifex.com/licensing}, source checked for Node 10.
+\newblock \url{https://artifex.com/licensing}, source checked for this report.
 
 \bibitem[BLS(2026a)]{blsManagementAnalysts}
 U.S. Bureau of Labor Statistics.
 \newblock Management Analysts.
-\newblock \url{https://www.bls.gov/ooh/business-and-financial/management-analysts.htm}, Node 9 source snapshot 2026-06-24.
+\newblock \url{https://www.bls.gov/ooh/business-and-financial/management-analysts.htm}, source snapshot 2026-06-24.
 
 \bibitem[BLS(2026b)]{blsDataScientists}
 U.S. Bureau of Labor Statistics.
 \newblock Data Scientists.
-\newblock \url{https://www.bls.gov/ooh/math/data-scientists.htm}, Node 9 source snapshot 2026-06-24.
+\newblock \url{https://www.bls.gov/ooh/math/data-scientists.htm}, source snapshot 2026-06-24.
 
 \bibitem[BLS(2026c)]{blsMedicalScientists}
 U.S. Bureau of Labor Statistics.
 \newblock Medical Scientists.
-\newblock \url{https://www.bls.gov/ooh/life-physical-and-social-science/medical-scientists.htm}, Node 9 source snapshot 2026-06-24.
+\newblock \url{https://www.bls.gov/ooh/life-physical-and-social-science/medical-scientists.htm}, source snapshot 2026-06-24.
 
 \bibitem[Consensus(2026)]{consensusPricing}
 Consensus.
 \newblock Subscription Plans.
-\newblock \url{https://help.consensus.app/en/articles/10087865-subscription-plans}, Node 9 market-context snapshot 2026-06-24.
+\newblock \url{https://help.consensus.app/en/articles/10087865-subscription-plans}, market-context snapshot 2026-06-24.
 
 \bibitem[Cormack et~al.(2009)]{cormack2009rrf}
 Gordon V. Cormack, Charles L. A. Clarke, and Stefan Buettcher.
@@ -179,7 +185,7 @@ Gordon V. Cormack, Charles L. A. Clarke, and Stefan Buettcher.
 \bibitem[Elicit(2026)]{elicitPricing}
 Elicit.
 \newblock Pricing.
-\newblock \url{https://elicit.com/pricing}, Node 9 market-context snapshot 2026-06-24.
+\newblock \url{https://elicit.com/pricing}, market-context snapshot 2026-06-24.
 
 \bibitem[Faysse et~al.(2024)]{faysse2024colpali}
 Manuel Faysse, Hugues Sibille, Tony Wu, Bilel Omrani, Gautier Viaud, Celine Hudelot, and Pierre Colombo.
@@ -189,7 +195,7 @@ Manuel Faysse, Hugues Sibille, Tony Wu, Bilel Omrani, Gautier Viaud, Celine Hude
 \bibitem[MuPDF(2026)]{mupdfLicense}
 MuPDF.
 \newblock MuPDF License.
-\newblock \url{https://mupdf.readthedocs.io/en/1.27.0/license.html}, source checked for Node 10.
+\newblock \url{https://mupdf.readthedocs.io/en/1.27.0/license.html}, source checked for this report.
 
 \bibitem[NeurIPS(2025a)]{neurips2025cfp}
 NeurIPS.
@@ -204,87 +210,12 @@ NeurIPS.
 \bibitem[OpenAI(2026)]{openaiPricing2026}
 OpenAI.
 \newblock API pricing.
-\newblock \url{https://openai.com/api/pricing/}, Node 9 source snapshot 2026-06-24.
-
-\bibitem[PaperMemory(2026a)]{paperMemoryInterviewValidation}
-PaperMemory local artifact.
-\newblock Interview market validation.
-\newblock \path{reports/final/results/interview_market_validation.md}.
-
-\bibitem[PaperMemory(2026b)]{paperMemoryEvidenceReliability}
-PaperMemory local artifact.
-\newblock Evidence reliability layer.
-\newblock \path{reports/final/results/evidence_reliability_layer.md}.
-
-\bibitem[PaperMemory(2026c)]{paperMemoryLiveLocalTest}
-PaperMemory local artifact.
-\newblock Live local test log.
-\newblock \path{reports/final/results/live_local_test_log.md}.
-
-\bibitem[PaperMemory(2026d)]{paperMemoryNode0}
-PaperMemory local artifact.
-\newblock Node 0 reproducibility environment.
-\newblock \path{reports/final/results/reproducibility_environment.md}.
-
-\bibitem[PaperMemory(2026e)]{paperMemoryNode1}
-PaperMemory local artifact.
-\newblock Baseline retrieval metrics.
-\newblock \path{reports/final/results/baseline_metrics.md}.
-
-\bibitem[PaperMemory(2026o)]{paperMemoryKeywordBaseline}
-PaperMemory local artifact.
-\newblock Keyword overlap baseline metrics.
-\newblock \path{reports/final/results/keyword_baseline_metrics.md}.
-
-\bibitem[PaperMemory(2026f)]{paperMemoryEvidenceContract}
-PaperMemory local artifact.
-\newblock Evidence contract.
-\newblock \path{reports/final/results/evidence_contract.md}.
-
-\bibitem[PaperMemory(2026g)]{paperMemoryTextManifest}
-PaperMemory local artifact.
-\newblock Text manifest quality.
-\newblock \path{reports/final/results/text_manifest_quality.md}.
-
-\bibitem[PaperMemory(2026h)]{paperMemoryBm25Metrics}
-PaperMemory local artifact.
-\newblock BM25 text retrieval metrics.
-\newblock \path{reports/final/results/bm25_metrics.md}.
-
-\bibitem[PaperMemory(2026i)]{paperMemoryHybridMetrics}
-PaperMemory local artifact.
-\newblock Hybrid retrieval metrics.
-\newblock \path{reports/final/results/hybrid_metrics.md}.
-
-\bibitem[PaperMemory(2026j)]{paperMemoryChatPacket}
-PaperMemory local artifact.
-\newblock Node 6 verified chat and evidence UI.
-\newblock \path{reports/final/results/chat_ui_packet.md}.
-
-\bibitem[PaperMemory(2026k)]{paperMemoryAgentTraces}
-PaperMemory local artifact.
-\newblock Node 7 agent trace examples.
-\newblock \path{reports/final/results/agent_trace_examples.md}.
-
-\bibitem[PaperMemory(2026l)]{paperMemoryRobustness}
-PaperMemory local artifact.
-\newblock Node 8 robustness matrix.
-\newblock \path{reports/final/results/robustness_matrix.md}.
-
-\bibitem[PaperMemory(2026m)]{paperMemoryFailureGallery}
-PaperMemory local artifact.
-\newblock Node 8 failure gallery.
-\newblock \path{reports/final/results/failure_gallery.md}.
-
-\bibitem[PaperMemory(2026n)]{paperMemoryCostBenefit}
-PaperMemory local artifact.
-\newblock Node 9 cost-benefit stress test.
-\newblock \path{reports/final/results/cost_benefit.md} and \path{reports/final/results/cost_benefit.csv}.
+\newblock \url{https://openai.com/api/pricing/}, source snapshot 2026-06-24.
 
 \bibitem[PyMuPDF(2026)]{pymupdfPypi}
 PyMuPDF.
 \newblock PyMuPDF project page.
-\newblock \url{https://pypi.org/project/PyMuPDF/}, source checked for Node 10.
+\newblock \url{https://pypi.org/project/PyMuPDF/}, source checked for this report.
 
 \bibitem[Robertson and Zaragoza(2009)]{robertson2009bm25}
 Stephen Robertson and Hugo Zaragoza.

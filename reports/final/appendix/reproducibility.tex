@@ -1,15 +1,35 @@
 \section{Reproducibility Commands and Environment}
 \label{app:reproducibility}
 
-The active repository root is \artifact{D:/codex/papermemory}. The older \artifact{D:/codex/llm\_paper\_assis/papermemory} path is now a junction to this working tree. The Node 0 environment artifact records branch \artifact{codex/papermemory-evidence-agent}, baseline commit \artifact{6884d738df9d685bad4f5a673a7d13a7bc2fb691}, Python 3.12.7, Node.js v22.18.0, and npm 10.9.3 \citep{paperMemoryNode0}.
+The report package is built from the PaperMemory repository root. The recorded environment for the final package is branch \artifact{codex/papermemory-evidence-agent}, baseline commit \artifact{6884d738df9d685bad4f5a673a7d13a7bc2fb691}, Python 3.12.7, Node.js v22.18.0, and npm 10.9.3.
 
-The final report package was compiled with the local LaTeX helper:
+The final report package was compiled with:
 \begin{verbatim}
-python "C:\Users\Miles CUI\.codex\plugins\cache\openai-bundled\latex\
-0.2.2\scripts\compile_latex.py" D:\codex\papermemory\
-reports\final\main.tex --json
+cd reports/final
+tectonic -X compile --outdir . --outfmt pdf --untrusted main.tex
 \end{verbatim}
 
-Earlier nodes recorded the following verification snapshots: Node 1 synthetic retrieval generation and JSON validation; Node 4 BM25 fixture generation; Node 5 hybrid fixture generation; Node 6 chat and evidence UI tests; Node 7 bounded orchestrator tests; Node 8 robustness tests with 11 focused passes; and Node 9 cost-model tests plus report regeneration. The canonical source artifacts for this report are stored under \artifact{reports/final/results/} and \artifact{eval/retrieval/results/}.
+The report uses only a small set of local evidence artifacts. They are kept out of References because they are project evidence rather than external literature. Unless noted otherwise, filenames in Table~\ref{tab:local-evidence-registry} live under \artifact{reports/final/results/}.
+
+\begin{table}[h]
+  \caption{Essential local evidence artifacts used by the report.}
+  \label{tab:local-evidence-registry}
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabularx}{\linewidth}{p{0.24\linewidth}YY}
+    \toprule
+    Evidence need & Essential artifact & Main claim supported \\
+    \midrule
+    Market validation & Interview appendix & Aggregate interview protocol, 4.2/5 conditional purchase likelihood, and 70\% managed-access preference. \\
+    Retrieval comparison & Cross-document metrics & Five-question cross-document retrieval table and per-question evidence pages. \\
+    Agent behavior & Live trace logs & Bounded retrieval retry, supported/insufficient answer states, and citation filtering behavior. \\
+    Robustness and cost & Robustness/cost files & Safe-failure fixtures and commercial stress-test assumptions. \\
+    Build and style & Build notes/style hash & Compile command, package layout, and NeurIPS style file used for the PDF. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Additional audit artifacts remain in the repository, but the table above lists the evidence objects needed to read and reproduce the report's major claims.
 
 The package uses the official \artifact{neurips\_2025.sty} downloaded from the NeurIPS 2025 style link on the Call for Papers page \citep{neurips2025cfp}. The report uses anonymous submission style, not camera-ready or preprint mode.

@@ -1,16 +1,16 @@
 \begin{table}[t]
-  \caption{The proposed freemium model connects interview preference for managed model access with bounded usage costs and evidence-workflow value.}
+  \caption{The proposed freemium model connects managed model access with evidence-workflow value.}
   \label{tab:revenue-model}
   \centering
   \small
   \setlength{\tabcolsep}{4pt}
-  \begin{tabularx}{\linewidth}{p{0.18\linewidth}p{0.25\linewidth}p{0.25\linewidth}Y}
+  \begin{tabularx}{\linewidth}{p{0.2\linewidth}YY}
     \toprule
-    Tier & User value & Model/API handling & Cost boundary \\
+    Tier & User value & Model/API handling \\
     \midrule
-    Free BYOK & Limited groups for local PDF evidence work and adoption testing. & User supplies their own key or local model path. & No included model spend; product cost is mainly local workflow support. \\
-    10~USD/month & Lower-friction postgraduate workflow with more groups and routine evidence runs. & Provider-compliant API relay for managed LLM access under a lower weekly cap, BYOK fallback, and rate limits. & Plausible only if managed usage stays bounded and high-use cases are throttled or upgraded. \\
-    20~USD/month & Larger workspace for heavier literature projects and repeated report drafting. & Provider-compliant API relay under a higher weekly cap, larger workspace, and the same evidence controls. & Still requires fair-use policy, production hosting data, support-cost tracking, and licensing review. \\
+    Free BYOK & Limited groups for local PDF evidence work and adoption testing. & User supplies their own key or local model path. \\
+    10~USD/month & Lower-friction postgraduate workflow with more groups and routine evidence runs. & Provider-compliant API relay for managed LLM access under a lower weekly cap. \\
+    20~USD/month & Larger workspace for heavier literature projects and repeated report drafting. & Provider-compliant API relay under a higher weekly cap and larger workspace. \\
     \bottomrule
   \end{tabularx}
 \end{table}

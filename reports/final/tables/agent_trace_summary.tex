@@ -1,19 +1,19 @@
 \begin{table}[t]
-  \caption{Bounded agent trace states. The agent can retry for missing evidence, but server checks keep actions inside the selected paper scope.}
+  \caption{Bounded agent trace states used by the evidence-seeking loop.}
   \label{tab:agent-trace-summary}
   \centering
   \small
   \setlength{\tabcolsep}{3pt}
-  \begin{tabularx}{\linewidth}{p{0.16\linewidth}YYYY}
+  \begin{tabularx}{\linewidth}{p{0.16\linewidth}YYY}
     \toprule
-    State & Agent action & Tool or component & Stop or transition & Safety boundary \\
+    State & Agent action & Tool or component & Stop or transition \\
     \midrule
-    Rewrite & Prepare a scoped retrieval query from the user turn. & Server planner hint. & Move to first retrieval. & Planner output is validated and budget-clamped. \\
-    Retrieve & Retrieve page evidence for the selected papers. & Hybrid, visual, or BM25 retrieval. & Build accepted EvidencePacket units. & Retrieval stays inside active paper scope. \\
-    Analyze & Compare packet evidence with required claims. & Requirement planner and coverage check. & Stop as \texttt{sufficient} or request targeted retry. & Missing evidence is recorded as a limit. \\
-    Retry & Search for uncovered requirements. & Coverage-gated retrieval retry. & Add only new accepted page units. & Pass count and query count are fixed by server limits. \\
-    Check & Check whether retry changed the packet. & Evidence delta and dedupe check. & Stop as \texttt{no\_new\_evidence} when delta is zero. & Repeated retrieval cannot loop forever. \\
-    Answer & Generate with final packet context and cite accepted pages. & Chat service and claim verifier. & Return answer plus reliability status. & Citations outside packet pages are stripped. \\
+    Rewrite & Prepare a scoped retrieval query from the user turn. & Server planner hint. & Move to first retrieval. \\
+    Retrieve & Retrieve page evidence for the selected papers. & Hybrid, visual, or BM25 retrieval. & Build accepted EvidencePacket units. \\
+    Analyze & Compare packet evidence with required claims. & Requirement planner and coverage check. & Stop as \texttt{sufficient} or request targeted retry. \\
+    Retry & Search for uncovered requirements. & Coverage-gated retrieval retry. & Add only new accepted page units. \\
+    Check & Check whether retry changed the packet. & Evidence delta and dedupe check. & Stop as \texttt{no\_new\_evidence} when delta is zero. \\
+    Answer & Generate with final packet context and cite accepted pages. & Chat service and claim verifier. & Return answer plus reliability status. \\
     \bottomrule
   \end{tabularx}
 \end{table}

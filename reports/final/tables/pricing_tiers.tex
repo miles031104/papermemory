@@ -1,16 +1,16 @@
 \begin{table}[t]
-  \caption{Proposed pricing tiers for a subscription experiment. The tiers avoid exact quotas until usage telemetry exists.}
+  \caption{Proposed pricing tiers for a subscription experiment.}
   \label{tab:pricing-tiers}
   \centering
   \small
   \setlength{\tabcolsep}{4pt}
-  \begin{tabularx}{\linewidth}{p{0.18\linewidth}YYY}
+  \begin{tabularx}{\linewidth}{p{0.2\linewidth}YY}
     \toprule
-    Tier & Access model & Usage boundary & Human role \\
+    Tier & Access model & Human role \\
     \midrule
-    Free BYOK & User provides an API key or local model path for limited local PDF groups; no included model spend. & BYOK usage remains outside PaperMemory-managed LLM spend, with local limits on groups and requests. & User verifies pages and manages their own model setup. \\
-    10~USD/month & Provider-compliant PaperMemory API relay for users who prefer subscription access over BYOK-only setup. & Lower weekly managed-model cap, BYOK fallback above cap, rate limits, and fair-use controls. & User verifies cited pages before using claims in writing. \\
-    20~USD/month & Provider-compliant API relay with a higher weekly managed-model boundary. & Higher weekly cap than the 10~USD tier, still with BYOK fallback, rate limits, and fair-use controls. & User remains responsible for expert judgment and final citation checks. \\
+    Free BYOK & User provides an API key or local model path for limited local PDF groups; no included model spend. & User verifies pages and manages their own model setup. \\
+    10~USD/month & Provider-compliant PaperMemory API relay for users who prefer subscription access over BYOK-only setup. & User verifies cited pages before using claims in writing. \\
+    20~USD/month & Provider-compliant API relay with a higher weekly managed-model allowance. & User remains responsible for expert judgment and final citation checks. \\
     \bottomrule
   \end{tabularx}
 \end{table}

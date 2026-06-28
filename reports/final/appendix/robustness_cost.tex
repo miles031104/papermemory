@@ -1,13 +1,13 @@
 \section{Robustness Failure Gallery and Cost Assumptions}
 \label{app:robustness-cost}
 
-The failure gallery records seven safe-failure snapshots: empty scope, missing scoped evidence, no-new-evidence loop, prompt-injection-like PDF text, citation drift, conflicting evidence, and low-text or scanned markers. The robustness matrix records 11 focused test passes for these fixtures \citep{paperMemoryRobustness,paperMemoryFailureGallery}. The expected behavior is containment and visible limits, not complete prevention of all possible prompt or citation failures.
+The failure gallery records seven safe-failure snapshots: empty scope, missing scoped evidence, no-new-evidence loop, prompt-injection-like PDF text, citation drift, conflicting evidence, and low-text or scanned markers. The robustness matrix records 11 focused test passes for these fixtures. The expected behavior is containment and visible limits, not complete prevention of all possible prompt or citation failures. The supporting local artifacts are \artifact{robustness\_matrix.md} and \artifact{failure\_gallery.md} under \artifact{reports/final/results/}.
 
-The cost model uses the Node 9 formula:
+The cost model uses the stress-test formula:
 \[
 \text{net savings} = (h_m - h_p - h_v) r - c_a - c_l.
 \]
-Low, base, and high cases vary manual and verification hours. Labor conversion uses annual wage divided by 2080 hours and multiplied by 1.35. Source values for OpenAI pricing, BLS wages, Elicit, and Consensus are a 2026-06-24 planning snapshot, so they should be refreshed before any customer-facing or investor-facing use.
+Low-savings, base-savings, and high-savings cases vary manual and verification hours. Labor conversion uses annual wage divided by 2080 hours and multiplied by 1.35. Source values for OpenAI pricing, BLS wages, Elicit, and Consensus are a 2026-06-24 planning snapshot, so they should be refreshed before any customer-facing or investor-facing use.
 
 \begin{table}[h]
   \caption{Cost-model assumptions from \artifact{cost\_benefit.csv}.}
@@ -26,6 +26,6 @@ Low, base, and high cases vary manual and verification hours. Labor conversion u
   \end{tabularx}
 \end{table}
 
-PyMuPDF/MuPDF licensing remains unresolved for commercial deployment. The cost table therefore includes planning license allocations, but the paper does not convert those estimates into production margins.
+PyMuPDF/MuPDF licensing remains unresolved for commercial deployment. The cost table therefore includes planning license allocations, but the paper does not convert those estimates into production margins. The cost spreadsheet and narrative are stored as \artifact{cost\_benefit.csv} and \artifact{cost\_benefit.md} under \artifact{reports/final/results/}.
 
 The proposed 10~USD/month and 20~USD/month tiers are tier-economics assumptions rather than validated pricing telemetry. Weekly caps, BYOK fallback above cap, rate limits, and fair-use controls are product controls for provider-compliant managed LLM API relay; the report does not assume consumer-account pooling, unlimited inference, or production margins.

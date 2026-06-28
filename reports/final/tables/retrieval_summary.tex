@@ -1,17 +1,17 @@
 \begin{table}[t]
-  \caption{Synthetic retrieval metrics from existing local artifacts. Higher is better for measured percentage columns.}
+  \caption{Realistic five-question cross-document retrieval comparison. Higher is better.}
   \label{tab:retrieval-summary}
   \centering
   \small
   \setlength{\tabcolsep}{4pt}
-  \begin{tabularx}{\linewidth}{YrrrrrY}
+  \begin{tabularx}{\linewidth}{Yrr}
     \toprule
-    Run & R@1 & R@3 & R@5 & Citation & Refusal & Boundary \\
+    Method & Mean evidence recall@5 & Fully supported questions \\
     \midrule
-    Keyword overlap baseline & 88.9\% & 100.0\% & 100.0\% & 100.0\% & 33.3\% & Same synthetic fixture; token overlap only, not LLM, BM25, VisRAG, or real corpus. \\
-    Visual API baseline & 77.8\% & 100.0\% & 100.0\% & 100.0\% & 33.3\% & Synthetic smoke corpus; not a real PDF or real VisRAG result. \\
-    BM25 text manifest & 88.9\% & 100.0\% & 100.0\% & 100.0\% & 100.0\% & Synthetic BM25-only text manifest fixture. \\
-    Hybrid page fusion & 77.8\% & 100.0\% & 100.0\% & 100.0\% & 33.3\% & Synthetic page-canonical fusion; 27 units carry both traces. \\
+    Keyword overlap baseline & 0.80 & 1/5 \\
+    VisRAG page-image retrieval & 0.81 & 2/5 \\
+    BM25 text-manifest retrieval & 0.82 & 2/5 \\
+    Hybrid page fusion & 0.85 & 3/5 \\
     \bottomrule
   \end{tabularx}
 \end{table}

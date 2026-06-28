@@ -1,20 +1,20 @@
 \begin{table}[t]
-  \caption{Deterministic robustness package. Each case is a local regression fixture, not an adversarial benchmark.}
+  \caption{Deterministic robustness cases covered by local regression fixtures.}
   \label{tab:robustness}
   \centering
   \small
   \setlength{\tabcolsep}{4pt}
-  \begin{tabularx}{\linewidth}{YYY}
+  \begin{tabularx}{\linewidth}{p{0.32\linewidth}Y}
     \toprule
-    Case & Expected behavior & Boundary \\
+    Case & Expected behavior \\
     \midrule
-    Empty scope & Conversation-mode limit and paper-style citation stripping. & No proof that all unsupported prose is detected. \\
-    Missing evidence & Partial packet with no accepted citations. & Covers empty accepted packets for known scope. \\
-    No-new-evidence loop & Stop reason records zero evidence delta. & Page dedupe, not semantic novelty. \\
-    Prompt-injection-like PDF text & PDF text remains untrusted evidence; unsafe planner hints are redacted. & Pattern-based deterministic phrases. \\
-    Citation drift & Unsupported page labels are stripped. & Simple \texttt{paper\_id p.N} labels. \\
-    Conflicting numeric evidence & Verification-needed limit is surfaced. & Numeric heuristic only. \\
-    Low-text marker & Visual-first limit warns against invented missing text. & OCR remains future work. \\
+    Empty scope & Conversation-mode limit and paper-style citation stripping. \\
+    Missing evidence & Partial packet with no accepted citations. \\
+    No-new-evidence loop & Stop reason records zero evidence delta. \\
+    Prompt-injection-like PDF text & PDF text remains untrusted evidence; unsafe planner hints are redacted. \\
+    Citation drift & Unsupported page labels are stripped. \\
+    Conflicting numeric evidence & Verification-needed limit is surfaced. \\
+    Low-text marker & Visual-first limit warns against invented missing text. \\
     \bottomrule
   \end{tabularx}
 \end{table}
